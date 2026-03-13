@@ -336,6 +336,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .rest-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 1s linear}
 .rest-time{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);width:48px;text-align:right}
 .rest-skip{background:none;border:1px solid var(--accent-border);border-radius:100px;color:var(--accent);font-size:12px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.weight-entry{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);}
+.weight-entry:last-child{border-bottom:none;}
+.weight-entry-kg{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent);line-height:1;}
+.weight-entry-date{font-size:12px;color:var(--muted);}
+.weight-entry-delta{font-size:12px;font-weight:600;padding:2px 8px;border-radius:100px;}
+.weight-entry-delta.up{color:#f08080;background:rgba(240,128,128,.1);}
+.weight-entry-delta.down{color:var(--accent);background:var(--accent-dim);}
+.weight-entry-delta.same{color:var(--muted);background:var(--surface2);}
 </style>
 </head>
 <body>
@@ -581,6 +589,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div class="settings-row"><div><div class="settings-row-title">BMR estimado</div><div class="settings-row-sub">kcal en reposo</div></div><div id="bmrVal" style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);">—</div></div>
       <div class="settings-row"><button onclick="saveProfile()" class="btn-p" style="font-size:16px;padding:12px;">GUARDAR PERFIL</button></div>
     </div>
+    <div class="sec-label">Peso corporal</div>
+    <div class="settings-section">
+      <div style="padding:14px 16px 10px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <input class="input-f" type="number" inputmode="decimal" step="0.1" id="newWeightInput"
+            placeholder="Ej: 78.5" style="flex:1;font-size:18px;">
+          <span style="font-size:14px;color:var(--muted);flex-shrink:0;">kg</span>
+          <button class="btn-p" onclick="logWeight()" style="padding:12px 18px;white-space:nowrap;">REGISTRAR</button>
+        </div>
+        <canvas id="weightChart" height="110"></canvas>
+      </div>
+      <div id="weightList"></div>
+    </div>
+
     <div class="sec-label">Entrenamiento</div>
     <div class="settings-section">
       <div class="settings-row">
@@ -794,8 +816,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '2.7.0';
+const APP_VERSION = '2.8.0';
 // Changelog:
+// 2.8.0 — Seguimiento de peso corporal con gráfico
 // 2.7.0 — Botón de actualización forzada, SW network-first
 // 2.6.0 — Onboarding con opción de importar backup
 // 2.5.0 — Versionado, toast arriba, rest bar fix onboarding
@@ -822,6 +845,7 @@ const db = {
   },
   hidden:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_hidden')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_hidden',JSON.stringify(v)) },
   restCfg:    { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_rest_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_rest_cfg',JSON.stringify(v)) },
+  weightLog:  { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_weightlog')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_weightlog',JSON.stringify(v)) },
 };
 
 // ═══════════════════════════════════════════════
@@ -1102,6 +1126,7 @@ function obImportBackup(input) {
       if (data.sportLogs) db.sportLogs.set(data.sportLogs);
       if (data.supps)     db.supps.set(data.supps);
       if (data.hidden)    db.hidden.set(data.hidden);
+      if (data.weightLog) db.weightLog.set(data.weightLog);
       document.getElementById('mainNav').style.display = 'flex';
       renderHome();
       snapTo('home');
@@ -2964,9 +2989,121 @@ function loadSettings() {
   if(p.edad) document.getElementById('cfgEdad').value = p.edad;
   if(p.sexo) document.getElementById('cfgSexo').value = p.sexo;
   updateBMR();
+  renderWeightSection();
   // Show current version
   const vEl = document.getElementById('appVersionLabel');
   if (vEl) vEl.textContent = APP_VERSION;
+}
+
+function logWeight() {
+  const input = document.getElementById('newWeightInput');
+  const kg = parseFloat(input.value);
+  if (!kg || kg < 20 || kg > 300) { toast('Ingresá un peso válido'); return; }
+
+  // Save to log
+  const log = db.weightLog.get();
+  log.push({ ts: new Date().toISOString(), kg });
+  db.weightLog.set(log);
+
+  // Update profile peso + recalculate BMR
+  const p = db.profile.get();
+  p.peso = kg;
+  db.profile.set(p);
+  document.getElementById('cfgPeso').value = kg;
+  updateBMR();
+
+  input.value = '';
+  if (navigator.vibrate) navigator.vibrate(40);
+  toast(`✓ ${kg}kg registrado`);
+  renderWeightSection();
+}
+
+function renderWeightSection() {
+  const log = db.weightLog.get();
+
+  // Chart
+  const ctx = document.getElementById('weightChart');
+  if (ctx) {
+    if (window._weightChart) { try { window._weightChart.destroy(); } catch {} }
+    if (log.length >= 2) {
+      const pts = log.slice(-20);
+      const minV = Math.min(...pts.map(p=>p.kg)) - 1;
+      const maxV = Math.max(...pts.map(p=>p.kg)) + 1;
+      window._weightChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: pts.map(p => new Date(p.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})),
+          datasets: [{
+            data: pts.map(p => p.kg),
+            borderColor: '#d4f53c',
+            backgroundColor: 'rgba(212,245,60,.06)',
+            borderWidth: 2,
+            pointBackgroundColor: '#d4f53c',
+            pointRadius: 4,
+            tension: 0.3,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color:'#666', font:{size:10} }, grid: { color:'#1a1a1a' } },
+            y: { min: minV, max: maxV, ticks: { color:'#666', font:{size:10} }, grid: { color:'#1a1a1a' } }
+          }
+        }
+      });
+      ctx.style.display = 'block';
+    } else {
+      ctx.style.display = log.length === 0 ? 'none' : 'block';
+    }
+  }
+
+  // List — last 8 entries, newest first
+  const listEl = document.getElementById('weightList');
+  if (!listEl) return;
+  if (!log.length) {
+    listEl.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:var(--muted);">Todavía no registraste ningún peso.</div>';
+    return;
+  }
+  const reversed = [...log].reverse().slice(0, 8);
+  listEl.innerHTML = reversed.map((entry, i) => {
+    const prev = reversed[i + 1];
+    let deltaHtml = '';
+    if (prev) {
+      const diff = Math.round((entry.kg - prev.kg) * 10) / 10;
+      if (diff > 0)      deltaHtml = `<span class="weight-entry-delta up">+${diff}kg</span>`;
+      else if (diff < 0) deltaHtml = `<span class="weight-entry-delta down">${diff}kg</span>`;
+      else               deltaHtml = `<span class="weight-entry-delta same">sin cambio</span>`;
+    }
+    const dateStr = new Date(entry.ts).toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
+    return `<div class="weight-entry">
+      <div>
+        <div class="weight-entry-kg">${entry.kg} kg</div>
+        <div class="weight-entry-date">${dateStr}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${deltaHtml}
+        <button class="btn-g danger" style="padding:4px 8px;font-size:12px;"
+          onclick="deleteWeightEntry('${entry.ts}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteWeightEntry(ts) {
+  const log = db.weightLog.get().filter(e => e.ts !== ts);
+  db.weightLog.set(log);
+  // If deleted the last entry, update profile peso to previous one
+  if (log.length > 0) {
+    const last = log[log.length - 1];
+    const p = db.profile.get();
+    p.peso = last.kg;
+    db.profile.set(p);
+    document.getElementById('cfgPeso').value = last.kg;
+    updateBMR();
+  }
+  renderWeightSection();
 }
 
 function updateBMR() {
@@ -3000,6 +3137,7 @@ function exportBackup() {
     sportLogs: db.sportLogs.get(),
     supps: db.supps.get(),
     hidden: db.hidden.get(),
+    weightLog: db.weightLog.get(),
     exported: new Date().toISOString(),
   };
   const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -3024,6 +3162,7 @@ function importBackup(input) {
       if (data.sportLogs) db.sportLogs.set(data.sportLogs);
       if (data.supps) db.supps.set(data.supps);
       if (data.hidden) db.hidden.set(data.hidden);
+      if (data.weightLog) db.weightLog.set(data.weightLog);
       toast('✓ Backup restaurado');
       navTo('home');
     } catch { toast('⚠ Archivo inválido'); }
