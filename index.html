@@ -54,6 +54,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .pill{background:var(--surface2);border:1px solid var(--border);border-radius:100px;font-size:11px;padding:5px 12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .15s}
 .pill.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
 .input-f{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;padding:10px 12px;-webkit-appearance:none;transition:border-color .15s}
+.input-f::placeholder{color:var(--muted);opacity:1}
+.input-f::-webkit-input-placeholder{color:var(--muted)}
+input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .input-f:focus{outline:none;border-color:var(--accent)}
 .input-f.sm{font-size:13px;padding:8px 10px;text-align:center}
 .input-f.meta{background:transparent;border-color:transparent;color:var(--muted);font-size:13px;cursor:default}
@@ -592,12 +595,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="sec-label">Peso corporal</div>
     <div class="settings-section">
       <div style="padding:14px 16px 10px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
           <input class="input-f" type="number" inputmode="decimal" step="0.1" id="newWeightInput"
-            placeholder="Ej: 78.5" style="flex:1;font-size:18px;">
-          <span style="font-size:14px;color:var(--muted);flex-shrink:0;">kg</span>
-          <button class="btn-p" onclick="logWeight()" style="padding:12px 18px;white-space:nowrap;">REGISTRAR</button>
+            placeholder="78.5" style="flex:1;font-size:26px;font-weight:600;text-align:center;padding:14px 12px;">
+          <span style="font-size:16px;color:var(--muted);flex-shrink:0;">kg</span>
         </div>
+        <button class="btn-p" onclick="logWeight()" style="width:100%;margin-bottom:14px;">REGISTRAR PESO</button>
         <canvas id="weightChart" height="110"></canvas>
       </div>
       <div id="weightList"></div>
