@@ -1073,8 +1073,45 @@ function initOnboarding() {
     snapTo('home');
     return;
   }
+  // Show welcome screen
   snapTo('onboard');
+  // Make sure welcome is visible, steps hidden
+  document.getElementById('ob-step-welcome').classList.add('active');
+  document.getElementById('ob-step-0').classList.remove('active');
+  document.getElementById('ob-step-1').classList.remove('active');
+  document.getElementById('obProgress').innerHTML = '';
+}
+
+function obStartFresh() {
+  document.getElementById('ob-step-welcome').classList.remove('active');
+  document.getElementById('ob-step-0').classList.add('active');
   renderObProgress(0);
+}
+
+function obImportBackup(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.profile)   db.profile.set(data.profile);
+      if (data.routine)   db.routine.set(data.routine);
+      if (data.sessions)  db.sessions.set(data.sessions);
+      if (data.sports)    db.sports.set(data.sports);
+      if (data.sportLogs) db.sportLogs.set(data.sportLogs);
+      if (data.supps)     db.supps.set(data.supps);
+      if (data.hidden)    db.hidden.set(data.hidden);
+      document.getElementById('mainNav').style.display = 'flex';
+      renderHome();
+      snapTo('home');
+      toast('✓ Backup restaurado 🎉');
+    } catch(err) {
+      toast('⚠ Archivo inválido');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
 }
 
 function renderObProgress(step) {
