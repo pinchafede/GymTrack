@@ -66,8 +66,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .btn-g.accent{border-color:var(--accent-border);color:var(--accent)}
 
 /* TOAST */
-.toast{position:fixed;bottom:calc(var(--nav-h) + 14px);left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#000;padding:10px 22px;border-radius:100px;font-weight:600;font-size:14px;z-index:999;transition:transform .3s cubic-bezier(0.175,.885,.32,1.275);white-space:nowrap;pointer-events:none}
-.toast.show{transform:translateX(-50%) translateY(0)}
+.toast{position:fixed;top:calc(env(safe-area-inset-top, 0px) + 16px);left:50%;transform:translateX(-50%) translateY(-80px);background:rgba(20,20,20,.95);color:var(--accent);border:1px solid var(--accent-border);padding:10px 22px;border-radius:100px;font-weight:600;font-size:13px;z-index:999;transition:transform .3s cubic-bezier(0.175,.885,.32,1.275),opacity .3s;white-space:nowrap;pointer-events:none;opacity:0;backdrop-filter:blur(8px);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
 
 /* OVERLAY / SHEET */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:flex-end;backdrop-filter:blur(6px)}
@@ -609,7 +609,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="settings-row-title" style="color:#f08080;">⚠️ Resetear app completa</div><div style="color:var(--muted)">›</div>
       </div>
     </div>
-    <div style="padding:16px 20px 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">GymTrack · Versión 2.0<br>Calorías son estimaciones basadas en MET.</div>
+    <div style="padding:16px 20px 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">GymTrack · v<span id="appVersionLabel">2.0</span><br>Calorías son estimaciones basadas en MET.</div>
   </div>
 </div>
 
@@ -772,7 +772,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <script>
 // ═══════════════════════════════════════════════
-// GYMTRACK v2.0 — STORAGE & DATA
+// ═══════════════════════════════════════════════
+// VERSION
+// ═══════════════════════════════════════════════
+const APP_VERSION = '2.5.0';
+// Changelog:
+// 2.5.0 — Versionado, toast arriba, rest bar fix onboarding
+// 2.4.0 — Workout context header, racha fire, supp widget mejorado
+// 2.3.0 — Peso auto por serie, día recomendado, saludo dinámico, timer configurable, transiciones, sparkline, swipe
+// 2.2.0 — Stats hero, coach renombrado a Progreso, último peso en Progreso, deportes condicionales
+// 2.1.0 — Serie rows con check, rest timer, guardar directo, historial agrupado
+// 2.0.0 — Versión inicial multi-usuario
+
+// GYMTRACK — STORAGE & DATA
 // ═══════════════════════════════════════════════
 
 const db = {
@@ -973,9 +985,16 @@ function navTo(id, back) {
     navStack.push(id);
   }
 
-  // Show/hide nav bar
+  // Show/hide nav bar + rest bar
   const hideNav = ['onboard','workout','sport'].includes(id);
   document.getElementById('mainNav').style.display = hideNav ? 'none' : 'flex';
+  // Hide rest bar on onboarding (not relevant there)
+  if (id === 'onboard') {
+    stopRest();
+    document.getElementById('restBar').style.display = 'none';
+  } else {
+    document.getElementById('restBar').style.display = '';
+  }
 }
 
 function navBack() {
@@ -1018,6 +1037,11 @@ function snapTo(id) {
   }
   const hideNav = ['onboard','workout','sport'].includes(id);
   document.getElementById('mainNav').style.display = hideNav ? 'none' : 'flex';
+  if (id === 'onboard') {
+    document.getElementById('restBar').style.display = 'none';
+  } else {
+    document.getElementById('restBar').style.display = '';
+  }
 }
 
 function initOnboarding() {
@@ -2882,6 +2906,9 @@ function loadSettings() {
   if(p.edad) document.getElementById('cfgEdad').value = p.edad;
   if(p.sexo) document.getElementById('cfgSexo').value = p.sexo;
   updateBMR();
+  // Show current version
+  const vEl = document.getElementById('appVersionLabel');
+  if (vEl) vEl.textContent = APP_VERSION;
 }
 
 function updateBMR() {
