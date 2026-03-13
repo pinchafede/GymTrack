@@ -575,7 +575,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <div class="overlay" id="dayEditOverlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="sheet"><div class="sheet-drag"></div>
     <div class="sheet-header">
-      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;" id="dayEditLabel">NUEVO DÍA</div><div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="dayEditTitle">Configurar día</div></div>
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;" id="dayEditLabel">NUEVO DÍA</div><div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="dayEditTitle">Configurar día</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="dayEditHint">Agregá los ejercicios de este día</div></div>
       <div class="sheet-close" onclick="document.getElementById('dayEditOverlay').classList.remove('open')">✕</div>
     </div>
     <div style="padding:18px;">
@@ -977,8 +978,9 @@ function obFinish() {
   db.profile.set({ name, peso:0, altura:0, edad:0, sexo:'M' });
 
   document.getElementById('mainNav').style.display = 'flex';
-  navTo('home');
-  toast(`¡Bienvenido, ${name}! 💪`);
+  // Go to routine editor so user can add exercises right away
+  navTo('routine-editor');
+  toast(`¡Bienvenido, ${name}! Ahora agregá los ejercicios a cada día 💪`);
 }
 
 // ═══════════════════════════════════════════════
@@ -1009,7 +1011,7 @@ function renderRoutineEditor() {
           <div class="re-day-name">${day.name}</div>
           <div class="re-day-sub">${exCount} ejercicio${exCount!==1?'s':''}</div>
         </div>
-        <button class="btn-g" onclick="event.stopPropagation();openEditDay(${di})" style="margin-right:8px;padding:6px 10px;">✏️</button>
+        <button class="btn-g${!exCount?' accent':''}" onclick="event.stopPropagation();openEditDay(${di})" style="margin-right:8px;padding:6px 10px;">${exCount?'✏️':'+ Ejercicios'}</button>
         <div style="color:var(--muted);font-size:16px;" id="reChev${di}">›</div>
       </div>
       <div class="re-day-body" id="reBody${di}">
@@ -1304,6 +1306,18 @@ function renderHome() {
     const last = daySessions[daySessions.length-1];
     const lastStr = last ? `Último: ${new Date(last.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})}` : 'Sin sesiones aún';
     const exCount = day.exercises?.length || 0;
+    if (!exCount) {
+      return `<div class="day-card c${di%7}" onclick="openEditDay(${di})" style="border-style:dashed;opacity:.8;">
+        <div class="day-card-inner">
+          <div>
+            <div class="day-tag">Día ${di+1} · SIN EJERCICIOS</div>
+            <div class="day-name">${day.name}</div>
+            <div class="day-sub" style="color:var(--accent);">Tocá para agregar ejercicios →</div>
+          </div>
+          <div class="day-arrow" style="color:var(--accent);">✏️</div>
+        </div>
+      </div>`;
+    }
     return `<div class="day-card c${di%7}" onclick="startWorkout(${di})">
       <div class="day-card-inner">
         <div>
