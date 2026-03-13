@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GymTrack">
+<meta name="application-name" content="GymTrack">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="description" content="Tu app de entrenamiento personal">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>GymTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0a0a0a; --surface:#141414; --surface2:#1c1c1c; --border:#2a2a2a;
+  --accent:#d4f53c; --accent-dim:rgba(212,245,60,.12); --accent-border:rgba(212,245,60,.25);
+  --red:#f53c3c; --red-dim:rgba(245,60,60,.1);
+  --green:#3cf5a0; --blue:#3ca8f5; --orange:#f5a623;
+  --text:#f0f0f0; --muted:#666;
+  --nav-h:64px; --radius:12px; --radius-sm:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:var(--nav-h)}
+
+/* SCREENS */
+.screen{display:none;min-height:calc(100vh - var(--nav-h));animation:fadeIn .15s ease}
+.screen.active{display:block}
+.screen.fullpage{min-height:100vh;padding-bottom:0;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* NAV BAR */
+.nav-bar{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);background:rgba(12,12,12,.96);border-top:1px solid var(--border);display:flex;align-items:center;backdrop-filter:blur(12px);z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:8px 0;border:none;background:none;color:var(--muted);transition:color .15s}
+.nav-item.active{color:var(--accent)}
+.nav-item:active{opacity:.7}
+.nav-icon{font-size:20px;line-height:1}
+.nav-label{font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;font-family:'DM Sans',sans-serif}
+
+/* SHARED */
+.page-header{padding:52px 20px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:1px;flex:1}
+.btn-back{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:20px;flex-shrink:0;transition:all .15s}
+.btn-back:active{background:var(--border)}
+.sec-label{padding:18px 20px 8px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card{margin:0 16px 10px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.list-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.list-row:last-child{border-bottom:none}
+.list-row:active{background:var(--surface2)}
+.pill{background:var(--surface2);border:1px solid var(--border);border-radius:100px;font-size:11px;padding:5px 12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .15s}
+.pill.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
+.input-f{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;padding:10px 12px;-webkit-appearance:none;transition:border-color .15s}
+.input-f:focus{outline:none;border-color:var(--accent)}
+.input-f.sm{font-size:13px;padding:8px 10px;text-align:center}
+.input-f.meta{background:transparent;border-color:transparent;color:var(--muted);font-size:13px;cursor:default}
+.input-f.filled{border-color:#3f5a00;color:var(--accent)}
+.btn-p{width:100%;background:var(--accent);color:#000;border:none;border-radius:var(--radius);padding:15px;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;cursor:pointer;transition:all .15s}
+.btn-p:active{transform:scale(.98);background:#bfdf00}
+.btn-g{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;padding:7px 12px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn-g:active{background:var(--surface2)}
+.btn-g.danger{border-color:rgba(245,60,60,.3);color:#f08080}
+.btn-g.accent{border-color:var(--accent-border);color:var(--accent)}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(var(--nav-h) + 14px);left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#000;padding:10px 22px;border-radius:100px;font-weight:600;font-size:14px;z-index:999;transition:transform .3s cubic-bezier(0.175,.885,.32,1.275);white-space:nowrap;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* OVERLAY / SHEET */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:flex-end;backdrop-filter:blur(6px)}
+.overlay.open{display:flex}
+.sheet{background:#111;border-radius:22px 22px 0 0;width:100%;max-height:88vh;overflow-y:auto;border-top:1px solid var(--border);animation:slideUp .25s cubic-bezier(.32,.72,0,1)}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-drag{width:36px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0}
+.sheet-header{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
+.sheet-close{background:var(--surface2);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:14px;flex-shrink:0}
+
+/* LOADING DOTS */
+.dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin:0 3px;animation:bounce 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+/* ONBOARDING */
+.onboard-wrap{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:32px 24px;background:var(--bg);}
+.onboard-logo{font-family:'Bebas Neue',sans-serif;font-size:64px;letter-spacing:4px;color:var(--accent);line-height:1;margin-bottom:6px;}
+.onboard-sub{font-size:14px;color:var(--muted);font-weight:300;margin-bottom:40px;line-height:1.5;}
+.onboard-step{display:none;}
+.onboard-step.active{display:block;}
+.onboard-step-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:6px;}
+.onboard-step-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;margin-bottom:20px;line-height:1.1;}
+.onboard-progress{display:flex;gap:6px;margin-bottom:32px;}
+.onboard-dot{flex:1;height:3px;border-radius:2px;background:var(--surface2);transition:background .3s;}
+.onboard-dot.done{background:var(--accent);}
+
+/* HOME */
+.home-hero{padding:52px 20px 16px;background:linear-gradient(180deg,#111 0%,var(--bg) 100%)}
+.home-hero h1{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:2px;line-height:1;color:var(--accent)}
+.home-hero p{color:var(--muted);font-size:13px;margin-top:2px;font-weight:300}
+.stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 16px 14px}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 10px;text-align:center}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--accent);line-height:1}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:2px;font-weight:300;letter-spacing:.5px}
+.week-dots{display:flex;gap:5px;margin:0 16px 16px}
+.wdot{flex:1;max-width:34px;aspect-ratio:1;border-radius:50%;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;background:var(--surface2);color:var(--muted);border:1.5px solid var(--border);transition:all .2s}
+.wdot.today{border-color:var(--accent)}
+.day-card{margin:0 16px 10px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:16px 18px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.day-card:active{transform:scale(.98);background:var(--surface2)}
+.day-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.day-card-inner{display:flex;justify-content:space-between;align-items:center}
+.day-tag{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px}
+.day-name{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;line-height:1}
+.day-sub{font-size:11px;color:var(--muted);margin-top:4px;font-weight:300}
+.day-last{font-size:11px;color:var(--accent);margin-top:5px;font-weight:500}
+.day-arrow{color:var(--muted);font-size:22px}
+.sport-card{margin:0 16px 10px;background:var(--surface);border-radius:var(--radius);border:1px solid #2a2010;padding:16px 18px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.sport-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;background:var(--orange)}
+.sport-card:active{transform:scale(.98)}
+
+/* SUPP WIDGET */
+.supp-widget{margin:0 16px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.sw-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 8px}
+.sw-title{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600}
+.sw-row{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--border);cursor:pointer;transition:background .1s}
+.sw-row:active{background:var(--surface2)}
+.sw-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:2px solid var(--border);background:var(--surface2);transition:all .15s}
+.sw-dot.done{background:var(--accent);border-color:var(--accent)}
+.sw-name{font-size:13px;flex:1;transition:color .15s}
+.sw-name.done{color:var(--muted);text-decoration:line-through}
+.sw-time{font-size:10px;color:var(--muted)}
+
+/* WORKOUT */
+.workout-header{padding:52px 16px 14px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px}
+.w-day-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px}
+.w-day-name{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;line-height:1.1}
+.save-bar{position:sticky;bottom:var(--nav-h);padding:10px 16px;background:var(--bg);border-top:1px solid var(--border);z-index:9}
+.tempo-block{margin:10px 16px 0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.tempo-block.warm{border-color:#2a3a1a;background:linear-gradient(135deg,#141f08,#111)}
+.tempo-block.cool{border-color:#1a2a3a;background:linear-gradient(135deg,#08141f,#111)}
+.tempo-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.tempo-title{font-size:13px;font-weight:600}
+.tempo-body{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
+.tempo-body.open{display:block}
+.tempo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.tempo-field label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.ex-card{margin:10px 16px 0;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;transition:opacity .2s,border-style .2s}
+.ex-card.skipped{opacity:.4;border-style:dashed}
+.ex-header{padding:13px 14px;display:flex;align-items:flex-start;cursor:pointer;transition:background .1s}
+.ex-header:active{background:var(--surface2)}
+.ex-num{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:1px;margin-bottom:2px}
+.ex-name{font-size:15px;font-weight:500;line-height:1.2}
+.ex-note{font-size:11px;color:var(--accent);margin-top:3px}
+.ex-chev{font-size:16px;color:var(--muted);transition:transform .2s;flex-shrink:0;margin-top:2px}
+.ex-chev.open{transform:rotate(180deg)}
+.ex-actions{display:flex;gap:6px;padding:0 14px 10px}
+.ex-body{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
+.ex-body.open{display:block}
+.series-grid{display:grid;grid-template-columns:28px 1fr 1fr 1fr;gap:5px;margin-top:10px}
+.series-grid.nokg{grid-template-columns:28px 1fr 1fr}
+.s-head{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:center;padding-bottom:2px}
+.s-lbl{font-size:13px;font-weight:600;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.skip-banner{display:flex;align-items:center;gap:8px;padding:8px 14px 12px;font-size:12px;color:#b87040}
+.extra-section{margin:10px 16px 0;background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius);padding:14px}
+.extra-title{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;margin-bottom:10px}
+.extra-row{display:flex;gap:8px;margin-bottom:10px}
+.stepper{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.step-btn{background:none;border:none;color:var(--text);font-size:18px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.step-val{font-size:14px;font-weight:600;min-width:26px;text-align:center}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:100px;font-size:11px;font-weight:600;padding:3px 9px}
+.badge.up{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-border)}
+.badge.hold{background:rgba(100,150,255,.1);color:#7ab0ff;border:1px solid rgba(100,150,255,.25)}
+.badge.warn{background:var(--red-dim);color:#f08080;border:1px solid rgba(245,60,60,.2)}
+.badge.info{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+
+/* SPORT REGISTER */
+.sport-reg-wrap{padding:16px 16px 0;}
+.esfuerzo-row{display:flex;gap:8px;}
+.efs-btn{flex:1;aspect-ratio:1;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all .15s;}
+
+/* STATS */
+.stats-card{margin:0 16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.cal-grid{display:grid;grid-template-columns:repeat(13,1fr);gap:3px}
+.cal-cell{aspect-ratio:1;border-radius:2px;background:var(--surface2);border:1px solid var(--border)}
+.pr-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:8px}
+.pr-name{font-size:13px;flex:1;padding-right:8px;line-height:1.3}
+.pr-date{font-size:10px;color:var(--muted);margin-top:1px}
+.pr-val{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);line-height:1}
+.ex-scroll{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;padding-bottom:2px}
+.ex-scroll::-webkit-scrollbar{display:none}
+
+/* COACH */
+.coach-card{margin:12px 16px 0;background:var(--surface);border:1px solid var(--accent-border);border-radius:var(--radius);padding:16px}
+.coach-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:8px}
+.prog-card{margin:8px 16px 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.prog-header{padding:13px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;transition:background .1s}
+.prog-header:active{background:var(--surface2)}
+.prog-ex-name{font-size:14px;font-weight:500;flex:1;line-height:1.25}
+.prog-detail{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
+.prog-detail.open{display:block}
+.sparkline{display:flex;align-items:flex-end;gap:4px;height:36px;margin:10px 0 4px}
+.spark-bar{flex:1;border-radius:3px 3px 0 0;min-height:4px}
+.spark-bar.cur{background:var(--accent)}
+.spark-bar.old{background:#3a3a3a}
+.mini-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.mini-box{background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center}
+.mini-val{font-size:18px;font-weight:600}
+.mini-lbl{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* SUPPS */
+.supp-card{margin-bottom:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s}
+.supp-card.chk{border-color:rgba(212,245,60,.35)}
+.supp-row{display:flex;align-items:center;gap:12px;padding:13px 14px}
+.supp-check{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;background:var(--surface2);cursor:pointer}
+.supp-check.done{background:var(--accent);border-color:var(--accent);color:#000}
+.supp-info{flex:1;cursor:pointer}
+.supp-name{font-size:14px;font-weight:500}
+.supp-name.done{color:var(--muted);text-decoration:line-through}
+.supp-meta{font-size:11px;color:var(--muted);margin-top:2px;font-weight:300}
+.supp-tag{font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:3px 8px;border-radius:100px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);flex-shrink:0}
+.supp-expand{display:none;padding:0 14px 12px;border-top:1px solid var(--border);gap:8px}
+.supp-expand.open{display:flex}
+
+/* SETTINGS */
+.settings-section{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.settings-row:last-child{border-bottom:none}
+.settings-row-title{font-size:14px}
+.settings-row-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ROUTINE EDITOR */
+.re-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden}
+.re-day-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;transition:background .1s}
+.re-day-header:active{background:var(--surface2)}
+.re-day-name{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.5px;flex:1}
+.re-day-sub{font-size:11px;color:var(--muted)}
+.re-day-body{display:none;border-top:1px solid var(--border);padding:12px 14px}
+.re-day-body.open{display:block}
+.re-ex-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.re-ex-row:last-child{border-bottom:none}
+.re-ex-name{font-size:13px;flex:1}
+.re-ex-meta{font-size:11px;color:var(--muted);white-space:nowrap}
+.color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* CAL SUMMARY */
+.cal-bdown{background:var(--surface2);border-radius:var(--radius);margin:10px 0}
+.cal-brow{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.cal-brow:last-child{border-bottom:none}
+.bar-wrap{margin:10px 0 6px}
+.bar-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:5px}
+.bar-track{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .6s ease}
+
+/* INFO PANEL */
+.muscle-chip{display:inline-flex;align-items:center;gap:5px;border-radius:var(--radius-sm);padding:5px 10px;font-size:12px;font-weight:500;margin:3px 3px 0 0}
+.muscle-chip.p{background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent)}
+.muscle-chip.s{background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+.info-desc{font-size:14px;line-height:1.65;color:#ccc;font-weight:300;margin-bottom:16px}
+.tip-list{background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);padding:4px 14px;margin-bottom:14px}
+.tip-item{font-size:13px;color:#bbb;line-height:1.5;padding:8px 0;border-bottom:1px solid var(--border);font-weight:300}
+.tip-item:last-child{border-bottom:none}
+.error-box{background:var(--red-dim);border:1px solid rgba(245,60,60,.2);border-radius:var(--radius);padding:12px;font-size:13px;color:#f08080;line-height:1.5;font-weight:300}
+
+/* PREDEF */
+.predef-item{padding:13px 18px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .1s}
+.predef-item:active{background:var(--surface2)}
+
+/* NO DATA */
+.no-data{padding:48px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.7}
+
+/* DAY COLOR ACCENTS */
+.day-card.c0::before{background:#d4f53c} .day-card.c1::before{background:#3cf5a0}
+.day-card.c2::before{background:#3ca8f5} .day-card.c3::before{background:#f53ca8}
+.day-card.c4::before{background:#f5a63c} .day-card.c5::before{background:#a63cf5}
+.day-card.c6::before{background:#f53c3c}
+.cal-cell.c0{background:#d4f53c;border-color:#d4f53c} .cal-cell.c1{background:#3cf5a0;border-color:#3cf5a0}
+.cal-cell.c2{background:#3ca8f5;border-color:#3ca8f5} .cal-cell.c3{background:#f53ca8;border-color:#f53ca8}
+.cal-cell.c4{background:#f5a63c;border-color:#f5a63c} .cal-cell.c5{background:#a63cf5;border-color:#a63cf5}
+.cal-cell.c6{background:#f53c3c;border-color:#f53c3c}
+.cal-cell.sport{background:var(--orange);border-color:var(--orange)}
+</style>
+</head>
+<body>
+
+<!-- ═══ ONBOARDING ═══ -->
+<div id="s-onboard" class="screen fullpage active">
+  <div class="onboard-wrap">
+    <div class="onboard-logo">GYM<br>TRACK</div>
+    <div class="onboard-sub">Tu entrenamiento, a tu manera.</div>
+    <div class="onboard-progress" id="obProgress"></div>
+
+    <!-- Step 1: Name -->
+    <div class="onboard-step active" id="ob-step-0">
+      <div class="onboard-step-label">Paso 1 de 3</div>
+      <div class="onboard-step-title">¿Cómo te<br>llamás?</div>
+      <input class="input-f" type="text" id="obName" placeholder="Tu nombre..." autocomplete="off" style="margin-bottom:16px;font-size:18px;" oninput="this.classList.toggle('filled',!!this.value)">
+      <button class="btn-p" onclick="obNext(0)">SIGUIENTE →</button>
+    </div>
+
+    <!-- Step 2: Routine name + days -->
+    <div class="onboard-step" id="ob-step-1">
+      <div class="onboard-step-label">Paso 2 de 3</div>
+      <div class="onboard-step-title">Creá tu<br>rutina</div>
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nombre de tu rutina</label>
+      <input class="input-f" type="text" id="obRoutineName" placeholder="Ej: Push Pull Legs, Full Body..." style="margin-bottom:16px;" oninput="this.classList.toggle('filled',!!this.value)">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">¿Cuántos días entrena por semana?</label>
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;" id="obDayPicker">
+        <div class="pill" onclick="selectDayCount(1)">1</div>
+        <div class="pill" onclick="selectDayCount(2)">2</div>
+        <div class="pill active" onclick="selectDayCount(3)">3</div>
+        <div class="pill" onclick="selectDayCount(4)">4</div>
+        <div class="pill" onclick="selectDayCount(5)">5</div>
+        <div class="pill" onclick="selectDayCount(6)">6</div>
+        <div class="pill" onclick="selectDayCount(7)">7</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-g" onclick="obBack(1)" style="padding:15px 20px;">‹</button>
+        <button class="btn-p" onclick="obNext(1)" style="flex:1;">SIGUIENTE →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Name each day -->
+    <div class="onboard-step" id="ob-step-2">
+      <div class="onboard-step-label">Paso 3 de 3</div>
+      <div class="onboard-step-title">Nombrá tus<br>días</div>
+      <div id="obDayNames" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.5;">Podés agregar ejercicios después desde la app.</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-g" onclick="obBack(2)" style="padding:15px 20px;">‹</button>
+        <button class="btn-p" onclick="obFinish()" style="flex:1;">¡EMPEZAR! 💪</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HOME ═══ -->
+<div id="s-home" class="screen">
+  <div class="home-hero"><h1 id="homeTitle">GYMTRACK</h1><p id="homeSubtitle">Tu rutina de hoy</p></div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-num" id="hTotal">0</div><div class="stat-lbl">sesiones</div></div>
+    <div class="stat-box"><div class="stat-num" id="hWeek">0</div><div class="stat-lbl">esta semana</div></div>
+    <div class="stat-box"><div class="stat-num" id="hStreak">0</div><div class="stat-lbl">racha días</div></div>
+  </div>
+  <div class="week-dots" id="weekDots"></div>
+  <div class="sec-label">Seleccioná tu día</div>
+  <div id="dayCCards"></div>
+  <div class="sec-label">Deportes</div>
+  <div id="sportCards"></div>
+  <div id="addSportHomeBtn" style="margin:0 16px 10px;">
+    <button class="btn-g" style="width:100%;justify-content:center;" onclick="navTo('sports')">+ Agregar deporte</button>
+  </div>
+  <div class="sec-label">Suplementos de hoy</div>
+  <div id="suppWidget"></div>
+</div>
+
+<!-- ═══ WORKOUT ═══ -->
+<div id="s-workout" class="screen">
+  <div class="workout-header">
+    <div class="btn-back" onclick="navBack()">‹</div>
+    <div><div class="w-day-label" id="wLabel">Día 1</div><div class="w-day-name" id="wName">ENTRENAMIENTO</div></div>
+    <button class="btn-g" style="margin-left:auto;" onclick="openEditDay(currentDayIdx)">✏️</button>
+  </div>
+  <div id="exList"></div>
+  <div class="save-bar"><button class="btn-p" onclick="saveSession()">GUARDAR SESIÓN</button></div>
+</div>
+
+<!-- ═══ SPORT REGISTER ═══ -->
+<div id="s-sport" class="screen">
+  <div class="workout-header">
+    <div class="btn-back" onclick="navBack()">‹</div>
+    <div><div class="w-day-label" id="sportRegLabel">Deporte</div><div class="w-day-name" id="sportRegName">—</div></div>
+  </div>
+  <div class="sport-reg-wrap">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;margin-bottom:12px;">Partido / Sesión de hoy</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Duración (min)</div>
+          <input class="input-f sm" type="number" inputmode="numeric" id="spDuracion" placeholder="60" style="text-align:left;padding:8px 12px;" oninput="this.classList.toggle('filled',!!this.value)"></div>
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Resultado</div>
+          <select class="input-f sm" id="spResultado" style="cursor:pointer;padding:8px 12px;">
+            <option value="">— sin resultado —</option>
+            <option value="ganamos">✅ Ganamos</option>
+            <option value="empatamos">🤝 Empatamos</option>
+            <option value="perdimos">❌ Perdimos</option>
+            <option value="entrene">💪 Entrené</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;" id="spGolesLabel">Goles en contra</div>
+          <input class="input-f sm" type="number" inputmode="numeric" id="spGoles" placeholder="0" style="text-align:left;padding:8px 12px;" oninput="this.classList.toggle('filled',!!this.value)"></div>
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;" id="spGolesALabel">Goles a favor</div>
+          <input class="input-f sm" type="number" inputmode="numeric" id="spGolesA" placeholder="0" style="text-align:left;padding:8px 12px;" oninput="this.classList.toggle('filled',!!this.value)"></div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;margin-bottom:12px;">Cómo te sentiste</div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Esfuerzo percibido</div>
+        <div class="esfuerzo-row" id="spEsfuerzoRow">
+          <div class="efs-btn" id="spefs1" onclick="selectSpEsfuerzo(1)">😴</div>
+          <div class="efs-btn" id="spefs2" onclick="selectSpEsfuerzo(2)">🙂</div>
+          <div class="efs-btn" id="spefs3" onclick="selectSpEsfuerzo(3)">😤</div>
+          <div class="efs-btn" id="spefs4" onclick="selectSpEsfuerzo(4)">💪</div>
+          <div class="efs-btn" id="spefs5" onclick="selectSpEsfuerzo(5)">🔥</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px;padding:0 2px;"><span>Suave</span><span>Máximo</span></div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Estado físico</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" id="spFisicoRow">
+          <div onclick="toggleSpFisico(this)" style="border:1px solid var(--border);border-radius:100px;padding:5px 12px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;">Bien 💚</div>
+          <div onclick="toggleSpFisico(this)" style="border:1px solid var(--border);border-radius:100px;padding:5px 12px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;">Cansado 😓</div>
+          <div onclick="toggleSpFisico(this)" style="border:1px solid var(--border);border-radius:100px;padding:5px 12px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;">Piernas 🦵</div>
+          <div onclick="toggleSpFisico(this)" style="border:1px solid var(--border);border-radius:100px;padding:5px 12px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;">Excelente ⚡</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;margin-bottom:8px;">Notas</div>
+      <textarea class="input-f" id="spNotas" placeholder="¿Algo para recordar de hoy?" style="resize:none;height:70px;font-size:13px;font-weight:300;line-height:1.5;"></textarea>
+    </div>
+  </div>
+  <div class="save-bar"><button class="btn-p" onclick="saveSport()">GUARDAR ACTIVIDAD</button></div>
+</div>
+
+<!-- ═══ STATS ═══ -->
+<div id="s-stats" class="screen">
+  <div class="page-header"><div class="page-title">ESTADÍSTICAS</div></div>
+  <div id="statsContent" style="padding-bottom:20px;"></div>
+</div>
+
+<!-- ═══ COACH ═══ -->
+<div id="s-coach" class="screen">
+  <div class="page-header"><div class="page-title">MI ENTRENADOR</div></div>
+  <div id="coachContent" style="padding-bottom:20px;"></div>
+</div>
+
+<!-- ═══ MORE ═══ -->
+<div id="s-more" class="screen">
+  <div class="page-header"><div class="page-title">MÁS</div></div>
+  <div class="sec-label">Actividad</div>
+  <div class="card">
+    <div class="list-row" onclick="navTo('history')"><div style="font-size:14px;">📋 Historial de sesiones</div><div style="color:var(--muted)">›</div></div>
+  </div>
+  <div class="sec-label">Mi rutina</div>
+  <div class="card">
+    <div class="list-row" onclick="navTo('routine-editor')"><div style="font-size:14px;">✏️ Editar mi rutina</div><div style="color:var(--muted)">›</div></div>
+    <div class="list-row" onclick="navTo('sports')"><div style="font-size:14px;">⚽ Mis deportes</div><div style="color:var(--muted)">›</div></div>
+  </div>
+  <div class="sec-label">Suplementos</div>
+  <div class="card">
+    <div class="list-row" onclick="navTo('supplements')"><div style="font-size:14px;">💊 Gestionar suplementos</div><div style="color:var(--muted)">›</div></div>
+  </div>
+  <div class="sec-label">Configuración</div>
+  <div class="card">
+    <div class="list-row" onclick="navTo('settings')"><div style="font-size:14px;">⚙️ Perfil y ajustes</div><div style="color:var(--muted)">›</div></div>
+  </div>
+</div>
+
+<!-- ═══ HISTORY ═══ -->
+<div id="s-history" class="screen">
+  <div class="page-header"><div class="btn-back" onclick="navBack()">‹</div><div class="page-title">HISTORIAL</div></div>
+  <div id="histList" style="padding:8px 0 24px;"></div>
+</div>
+
+<!-- ═══ ROUTINE EDITOR ═══ -->
+<div id="s-routine-editor" class="screen">
+  <div class="page-header">
+    <div class="btn-back" onclick="navBack()">‹</div>
+    <div class="page-title">MI RUTINA</div>
+    <button onclick="openAddDay()" style="margin-left:auto;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:7px 14px;cursor:pointer;">+ Día</button>
+  </div>
+  <div style="padding:4px 16px 8px;">
+    <div style="font-size:12px;color:var(--muted);padding:10px 0 4px;">Nombre de la rutina</div>
+    <div style="display:flex;gap:8px;">
+      <input class="input-f" id="reRoutineName" type="text" placeholder="Nombre de tu rutina" style="flex:1;">
+      <button onclick="saveRoutineName()" class="btn-g accent" style="white-space:nowrap;">Guardar</button>
+    </div>
+  </div>
+  <div id="reDayList" style="padding:8px 16px 24px;"></div>
+</div>
+
+<!-- ═══ SPORTS ═══ -->
+<div id="s-sports" class="screen">
+  <div class="page-header">
+    <div class="btn-back" onclick="navBack()">‹</div>
+    <div class="page-title">MIS DEPORTES</div>
+    <button onclick="openSportEdit(null)" style="margin-left:auto;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:7px 14px;cursor:pointer;">+ Agregar</button>
+  </div>
+  <div id="sportList" style="padding:12px 16px 32px;"></div>
+</div>
+
+<!-- ═══ SUPPLEMENTS ═══ -->
+<div id="s-supplements" class="screen">
+  <div class="page-header">
+    <div class="btn-back" onclick="navBack()">‹</div>
+    <div class="page-title">SUPLEMENTOS</div>
+    <button onclick="openSuppEdit(null)" style="margin-left:auto;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:7px 14px;cursor:pointer;">+ Agregar</button>
+  </div>
+  <div id="suppList" style="padding:12px 16px 32px;"></div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div id="s-settings" class="screen">
+  <div class="page-header"><div class="btn-back" onclick="navBack()">‹</div><div class="page-title">AJUSTES</div></div>
+  <div style="padding:4px 0 40px;">
+    <div class="sec-label">Perfil</div>
+    <div class="settings-section">
+      <div class="settings-row"><div><div class="settings-row-title">Nombre</div></div><input class="input-f sm" type="text" id="cfgNombre" style="width:140px;" placeholder="Tu nombre"></div>
+      <div class="settings-row"><div><div class="settings-row-title">Peso (kg)</div></div><input class="input-f sm" type="number" inputmode="decimal" step="0.5" id="cfgPeso" style="width:90px;" oninput="updateBMR()"></div>
+      <div class="settings-row"><div><div class="settings-row-title">Altura (cm)</div></div><input class="input-f sm" type="number" inputmode="numeric" id="cfgAltura" style="width:90px;" oninput="updateBMR()"></div>
+      <div class="settings-row"><div><div class="settings-row-title">Edad</div></div><input class="input-f sm" type="number" inputmode="numeric" id="cfgEdad" style="width:90px;" oninput="updateBMR()"></div>
+      <div class="settings-row"><div><div class="settings-row-title">Sexo</div></div><select class="input-f sm" id="cfgSexo" style="width:130px;cursor:pointer;" onchange="updateBMR()"><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
+      <div class="settings-row"><div><div class="settings-row-title">BMR estimado</div><div class="settings-row-sub">kcal en reposo</div></div><div id="bmrVal" style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);">—</div></div>
+      <div class="settings-row"><button onclick="saveProfile()" class="btn-p" style="font-size:16px;padding:12px;">GUARDAR PERFIL</button></div>
+    </div>
+    <div class="sec-label">Datos y backup</div>
+    <div class="settings-section">
+      <div class="settings-row" style="cursor:pointer;" onclick="exportBackup()">
+        <div><div class="settings-row-title">⬇️ Exportar backup</div><div class="settings-row-sub">Descarga un archivo con todas tus sesiones</div></div><div style="color:var(--muted)">›</div>
+      </div>
+      <div class="settings-row" style="cursor:pointer;" onclick="document.getElementById('importInput').click()">
+        <div><div class="settings-row-title">⬆️ Importar backup</div><div class="settings-row-sub">Restaura desde un archivo exportado</div></div><div style="color:var(--muted)">›</div>
+      </div>
+      <input type="file" id="importInput" accept=".json" style="display:none;" onchange="importBackup(this)">
+      <div class="settings-row" style="cursor:pointer;" onclick="if(confirm('¿Borrar todas las sesiones?')){db.sessions.set([]);toast('Sesiones eliminadas');renderHome();}">
+        <div class="settings-row-title" style="color:#f08080;">🗑 Borrar historial de sesiones</div><div style="color:var(--muted)">›</div>
+      </div>
+      <div class="settings-row" style="cursor:pointer;" onclick="if(confirm('¿Resetear TODA la app? Esto borra todo.')){localStorage.clear();location.reload();}">
+        <div class="settings-row-title" style="color:#f08080;">⚠️ Resetear app completa</div><div style="color:var(--muted)">›</div>
+      </div>
+    </div>
+    <div style="padding:16px 20px 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">GymTrack · Versión 2.0<br>Calorías son estimaciones basadas en MET.</div>
+  </div>
+</div>
+
+<!-- ═══ NAV ═══ -->
+<nav class="nav-bar" id="mainNav" style="display:none;">
+  <button class="nav-item active" id="ni-home" onclick="navTo('home')"><div class="nav-icon">🏠</div><div class="nav-label">Inicio</div></button>
+  <button class="nav-item" id="ni-stats" onclick="navTo('stats')"><div class="nav-icon">📊</div><div class="nav-label">Stats</div></button>
+  <button class="nav-item" id="ni-coach" onclick="navTo('coach')"><div class="nav-icon">🧠</div><div class="nav-label">Coach</div></button>
+  <button class="nav-item" id="ni-more" onclick="navTo('more')"><div class="nav-icon">☰</div><div class="nav-label">Más</div></button>
+</nav>
+
+<!-- ═══ OVERLAYS ═══ -->
+
+<!-- Info ejercicio -->
+<div class="overlay" id="infoOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet"><div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;" id="infoNum">EJERCICIO</div><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.5px;" id="infoName">—</div></div>
+      <div class="sheet-close" onclick="document.getElementById('infoOverlay').classList.remove('open')">✕</div>
+    </div>
+    <div id="infoBody" style="padding:18px;"></div>
+  </div>
+</div>
+
+<!-- Predefinidos -->
+<div class="overlay" id="predefOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet"><div class="sheet-drag"></div>
+    <div style="padding:14px 18px 10px;border-bottom:1px solid var(--border);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:10px;">Elegí un ejercicio</div>
+      <input class="input-f" id="predefQ" placeholder="🔍 Buscar..." oninput="renderPredef()" style="margin-bottom:8px;">
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;" id="predefFilters"></div>
+    </div>
+    <div id="predefItems" style="max-height:52vh;overflow-y:auto;"></div>
+    <div style="padding:10px 16px;"><button class="btn-g" style="width:100%;justify-content:center;" onclick="document.getElementById('predefOverlay').classList.remove('open')">Cancelar</button></div>
+  </div>
+</div>
+
+<!-- Add/Edit Day -->
+<div class="overlay" id="dayEditOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet"><div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;" id="dayEditLabel">NUEVO DÍA</div><div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="dayEditTitle">Configurar día</div></div>
+      <div class="sheet-close" onclick="document.getElementById('dayEditOverlay').classList.remove('open')">✕</div>
+    </div>
+    <div style="padding:18px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nombre del día</label>
+      <input id="deNombre" class="input-f" type="text" placeholder="Ej: Espalda · Tríceps" style="margin-bottom:14px;">
+      <div id="deExList" style="margin-bottom:14px;"></div>
+      <button onclick="openPredefForDay()" class="btn-g accent" style="width:100%;justify-content:center;margin-bottom:8px;">+ Agregar ejercicio</button>
+      <button onclick="saveDayEdit()" class="btn-p" style="font-size:18px;">GUARDAR DÍA</button>
+      <div id="deDeleteBtn" style="margin-top:8px;display:none;">
+        <button onclick="deleteDay()" class="btn-g danger" style="width:100%;justify-content:center;">🗑 Eliminar este día</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Exercise to Day -->
+<div class="overlay" id="exEditOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet"><div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;">EJERCICIO</div><div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="exEditName">—</div></div>
+      <div class="sheet-close" onclick="document.getElementById('exEditOverlay').classList.remove('open')">✕</div>
+    </div>
+    <div style="padding:18px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Series</label>
+          <input id="eeS" class="input-f" type="number" inputmode="numeric" value="4" min="1" max="10"></div>
+        <div><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Reps objetivo</label>
+          <input id="eeR" class="input-f" type="number" inputmode="numeric" value="10" min="1" max="100"></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);margin-bottom:14px;">
+        <div><div style="font-size:14px;">¿Lleva peso (kg)?</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">Activá para registrar kg por serie</div></div>
+        <div id="eeKgToggle" onclick="toggleKg()" style="width:44px;height:26px;border-radius:13px;background:var(--accent);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;">
+          <div style="position:absolute;width:20px;height:20px;border-radius:50%;background:#000;top:3px;right:3px;transition:right .2s;"></div>
+        </div>
+      </div>
+      <div><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nota (opcional)</label>
+        <input id="eeNota" class="input-f" type="text" placeholder="Ej: agarre neutro, banda roja..."></div>
+      <div style="margin-top:14px;"><button onclick="saveExEdit()" class="btn-p" style="font-size:18px;">CONFIRMAR</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Sport Edit -->
+<div class="overlay" id="sportEditOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet"><div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;" id="spEditLabel">DEPORTE</div><div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="spEditTitle">—</div></div>
+      <div class="sheet-close" onclick="document.getElementById('sportEditOverlay').classList.remove('open')">✕</div>
+    </div>
+    <div style="padding:18px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nombre del deporte</label>
+      <input id="speNombre" class="input-f" type="text" placeholder="Ej: Fútbol 7, Básquet, Tenis..." style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Emoji / ícono</label>
+      <input id="speEmoji" class="input-f" type="text" placeholder="⚽ 🏀 🎾 🏊..." style="margin-bottom:14px;font-size:20px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Tu posición o rol (opcional)</label>
+      <input id="speRol" class="input-f" type="text" placeholder="Ej: Arquero, Base, Delantero..." style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Intensidad típica</label>
+      <select id="speIntensidad" class="input-f" style="cursor:pointer;margin-bottom:20px;">
+        <option value="3.5">Baja (caminata, yoga) — 3.5 MET</option>
+        <option value="5.0">Moderada (ciclismo, golf) — 5.0 MET</option>
+        <option value="6.5" selected>Alta (fútbol, básquet) — 6.5 MET</option>
+        <option value="8.0">Muy alta (remo, rugby) — 8.0 MET</option>
+        <option value="10.0">Extrema (sprints, box) — 10.0 MET</option>
+      </select>
+      <button onclick="saveSportEdit()" class="btn-p" style="font-size:18px;">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Supp Edit -->
+<div class="overlay" id="suppEditOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet"><div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;" id="seLabel">SUPLEMENTO</div><div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="seTitle">—</div></div>
+      <div class="sheet-close" onclick="document.getElementById('suppEditOverlay').classList.remove('open')">✕</div>
+    </div>
+    <div style="padding:18px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nombre</label>
+      <input id="seNombre" class="input-f" type="text" placeholder="Ej: Proteína Whey" style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Dosis / notas</label>
+      <input id="seDosis" class="input-f" type="text" placeholder="Ej: 30g post-entreno" style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Momento</label>
+      <select id="seMomento" class="input-f" style="margin-bottom:20px;cursor:pointer;">
+        <option value="mañana">🌅 Mañana</option><option value="pre">⚡ Pre-entreno</option>
+        <option value="post">💪 Post-entreno</option><option value="noche">🌙 Noche</option>
+        <option value="cualquier">🕐 Cualquier momento</option>
+      </select>
+      <button onclick="saveSuppEdit()" class="btn-p" style="font-size:18px;">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cal/Summary overlay -->
+<div class="overlay" id="calOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet" style="max-height:92vh;overflow-y:auto;"><div class="sheet-drag"></div>
+    <div style="padding:14px 18px 0;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);">Resumen · Sesión completada</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-top:2px;" id="calDayName">—</div>
+    </div>
+    <div id="calContent" style="padding:0 18px;"></div>
+    <div style="padding:4px 18px 20px;display:flex;flex-direction:column;gap:8px;">
+      <button class="btn-p" id="calConfirmBtn" onclick="confirmSave()">GUARDAR Y CERRAR</button>
+      <button class="btn-g" id="calCancelBtn" style="width:100%;justify-content:center;" onclick="document.getElementById('calOverlay').classList.remove('open')">Seguir editando</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toastEl"></div>
