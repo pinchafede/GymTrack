@@ -567,7 +567,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;" id="predefFilters"></div>
     </div>
     <div id="predefItems" style="max-height:52vh;overflow-y:auto;"></div>
-    <div style="padding:10px 16px;"><button class="btn-g" style="width:100%;justify-content:center;" onclick="document.getElementById('predefOverlay').classList.remove('open')">Cancelar</button></div>
+    <div style="padding:10px 16px;"><button class="btn-g" style="width:100%;justify-content:center;" onclick="document.getElementById('predefOverlay').classList.remove('open');document.getElementById('dayEditOverlay').classList.add('open')">Cancelar</button></div>
   </div>
 </div>
 
@@ -1063,9 +1063,6 @@ function openEditDay(di) {
   document.getElementById('deDeleteBtn').style.display = 'block';
   renderDeExList();
   document.getElementById('dayEditOverlay').classList.add('open');
-  document.getElementById('dayEditOverlay').classList.add('open');
-  // Close workout edit btn overlay if opened from workout
-  document.getElementById('dayEditOverlay').classList.add('open');
 }
 
 function renderDeExList() {
@@ -1085,6 +1082,8 @@ function renderDeExList() {
 
 function openPredefForDay() {
   predefCallback = (name, isKg) => {
+    // Close predef, open exEdit on top of dayEdit
+    document.getElementById('predefOverlay').classList.remove('open');
     pendingExName = name;
     eeKgOn = isKg;
     editingExIdx = null;
@@ -1093,9 +1092,10 @@ function openPredefForDay() {
     document.getElementById('eeR').value = 10;
     document.getElementById('eeNota').value = '';
     updateKgToggleUI();
-    document.getElementById('predefOverlay').classList.remove('open');
     document.getElementById('exEditOverlay').classList.add('open');
   };
+  // Close dayEdit temporarily, open predef
+  document.getElementById('dayEditOverlay').classList.remove('open');
   openPredef();
 }
 
@@ -1146,6 +1146,8 @@ function saveExEdit() {
   }
   renderDeExList();
   document.getElementById('exEditOverlay').classList.remove('open');
+  // Always reopen dayEdit after confirming exercise
+  document.getElementById('dayEditOverlay').classList.add('open');
 }
 
 function saveDayEdit() {
@@ -1160,7 +1162,8 @@ function saveDayEdit() {
   }
   db.routine.set(routine);
   document.getElementById('dayEditOverlay').classList.remove('open');
-  toast('✓ Día guardado');
+  const exCount = editingDayExercises.length;
+  toast(`✓ Día guardado · ${exCount} ejercicio${exCount!==1?'s':''}`);
   renderRoutineEditor();
   renderHome();
 }
