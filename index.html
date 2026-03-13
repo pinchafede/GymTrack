@@ -347,8 +347,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="onboard-sub">Tu entrenamiento, a tu manera.</div>
     <div class="onboard-progress" id="obProgress"></div>
 
+    <!-- Step 0: ¿Tenés backup? -->
+    <div class="onboard-step active" id="ob-step-welcome">
+      <div class="onboard-step-title" style="font-size:26px;">¡Bienvenido!</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:32px;line-height:1.7;font-weight:300;">
+        ¿Es la primera vez que usás la app o<br>tenés un backup para restaurar?
+      </div>
+      <button class="btn-p" onclick="obStartFresh()" style="margin-bottom:12px;">EMPEZAR DESDE CERO</button>
+      <button class="btn-g" style="width:100%;justify-content:center;" onclick="document.getElementById('obImportInput').click()">
+        ⬆️ Tengo un backup
+      </button>
+      <input type="file" id="obImportInput" accept=".json" style="display:none;" onchange="obImportBackup(this)">
+    </div>
+
     <!-- Step 1: Name + days count -->
-    <div class="onboard-step active" id="ob-step-0">
+    <div class="onboard-step" id="ob-step-0">
       <div class="onboard-step-label">Paso 1 de 2</div>
       <div class="onboard-step-title">¿Cómo te<br>llamás?</div>
       <input class="input-f" type="text" id="obName" placeholder="Tu nombre..." autocomplete="off"
@@ -775,8 +788,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 // Changelog:
+// 2.6.0 — Onboarding con opción de importar backup
 // 2.5.0 — Versionado, toast arriba, rest bar fix onboarding
 // 2.4.0 — Workout context header, racha fire, supp widget mejorado
 // 2.3.0 — Peso auto por serie, día recomendado, saludo dinámico, timer configurable, transiciones, sparkline, swipe
