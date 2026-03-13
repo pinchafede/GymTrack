@@ -622,7 +622,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="settings-row-title" style="color:#f08080;">⚠️ Resetear app completa</div><div style="color:var(--muted)">›</div>
       </div>
     </div>
-    <div style="padding:16px 20px 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">GymTrack · v<span id="appVersionLabel">2.0</span><br>Calorías son estimaciones basadas en MET.</div>
+    <div class="settings-section" style="margin-bottom:0;">
+      <div class="settings-row" style="cursor:pointer;" onclick="forceUpdate()">
+        <div><div class="settings-row-title">🔄 Buscar actualización</div><div class="settings-row-sub">Descarga la última versión · tus datos no se borran</div></div>
+        <div style="color:var(--muted);">›</div>
+      </div>
+    </div>
+    <div style="padding:16px 20px 8px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;">GymTrack · v<span id="appVersionLabel">2.0</span><br>Calorías son estimaciones basadas en MET.</div>
   </div>
 </div>
 
@@ -788,8 +794,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.7.0';
 // Changelog:
+// 2.7.0 — Botón de actualización forzada, SW network-first
 // 2.6.0 — Onboarding con opción de importar backup
 // 2.5.0 — Versionado, toast arriba, rest bar fix onboarding
 // 2.4.0 — Workout context header, racha fire, supp widget mejorado
@@ -3024,10 +3031,28 @@ function initSerieSwipe(ei, si, totalSeries) {
   }, { passive: true });
 }
 
+function forceUpdate() {
+  if (!('serviceWorker' in navigator)) {
+    toast('Recargando...');
+    setTimeout(() => location.reload(true), 500);
+    return;
+  }
+  toast('Buscando actualización...');
+  navigator.serviceWorker.ready.then(reg => {
+    // Tell SW to clear all caches
+    reg.active?.postMessage('FORCE_UPDATE');
+    // Fallback: if SW doesn't respond in 2s, reload anyway
+    setTimeout(() => location.reload(true), 2000);
+  }).catch(() => location.reload(true));
+}
+
 function init() {
-  // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(()=>{});
+    // Listen for SW reload signal
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data === 'RELOAD') location.reload(true);
+    });
   }
   initOnboarding();
 }
