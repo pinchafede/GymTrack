@@ -684,3 +684,1767 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <div class="toast" id="toastEl"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// GYMTRACK v2.0 — STORAGE & DATA
+// ═══════════════════════════════════════════════
+
+const db = {
+  profile:    { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_profile')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_profile',JSON.stringify(v)) },
+  routine:    { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_routine')||'null')}catch{return null} }, set:v=>localStorage.setItem('gt_routine',JSON.stringify(v)) },
+  sessions:   { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sessions')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_sessions',JSON.stringify(v)) },
+  sports:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sports')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_sports',JSON.stringify(v)) },
+  sportLogs:  { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sportlogs')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_sportlogs',JSON.stringify(v)) },
+  supps:      { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_supps')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_supps',JSON.stringify(v)) },
+  suppToday:  {
+    key:()=>'gt_supp_'+new Date().toISOString().slice(0,10),
+    get:()=>{ try{return JSON.parse(localStorage.getItem('gt_supp_'+new Date().toISOString().slice(0,10))||'{}')}catch{return{}} },
+    set:v=>localStorage.setItem('gt_supp_'+new Date().toISOString().slice(0,10),JSON.stringify(v))
+  },
+  hidden:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_hidden')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_hidden',JSON.stringify(v)) },
+};
+
+// ═══════════════════════════════════════════════
+// DAY COLORS
+// ═══════════════════════════════════════════════
+const DAY_COLORS = ['#d4f53c','#3cf5a0','#3ca8f5','#f53ca8','#f5a63c','#a63cf5','#f53c3c'];
+
+// ═══════════════════════════════════════════════
+// EXERCISE LIBRARY (predefined)
+// ═══════════════════════════════════════════════
+const EX_LIBRARY = [
+  // Espalda
+  {name:'Tirón dorsal polea (agarre prono)',group:'Espalda',kg:true},
+  {name:'Tirón dorsal polea (agarre neutro)',group:'Espalda',kg:true},
+  {name:'Dominadas asistidas',group:'Espalda',kg:false},
+  {name:'Remo con barra',group:'Espalda',kg:true},
+  {name:'Remo con mancuerna',group:'Espalda',kg:true},
+  {name:'Pull over',group:'Espalda',kg:true},
+  // Pecho
+  {name:'Empuje de pecho mancuernas (banco plano)',group:'Pecho',kg:true},
+  {name:'Empuje de pecho barra (banco inclinado)',group:'Pecho',kg:true},
+  {name:'Empuje de pecho en máquina',group:'Pecho',kg:true},
+  {name:'Flexo extensión de brazos',group:'Pecho',kg:false},
+  {name:'Aperturas con mancuernas',group:'Pecho',kg:true},
+  {name:'Cruces en polea',group:'Pecho',kg:true},
+  // Hombros
+  {name:'Empuje de hombros Arnold',group:'Hombros',kg:true},
+  {name:'Vuelos combinados con mancuernas',group:'Hombros',kg:true},
+  {name:'Vuelos laterales mancuernas',group:'Hombros',kg:true},
+  {name:'Vuelos posteriores mancuernas',group:'Hombros',kg:true},
+  {name:'Elevación de hombros',group:'Hombros',kg:true},
+  {name:'Empuje militar barra',group:'Hombros',kg:true},
+  // Bíceps
+  {name:'Bíceps con mancuernas',group:'Bíceps',kg:true},
+  {name:'Bíceps mancuernas (banco inclinado)',group:'Bíceps',kg:true},
+  {name:'Bíceps con polea',group:'Bíceps',kg:true},
+  {name:'Curl martillo',group:'Bíceps',kg:true},
+  {name:'Curl concentrado',group:'Bíceps',kg:true},
+  // Tríceps
+  {name:'Tríceps con polea (agarre prono)',group:'Tríceps',kg:true},
+  {name:'Tríceps tras nuca mancuerna (1 brazo)',group:'Tríceps',kg:true},
+  {name:'Tríceps patada de burro',group:'Tríceps',kg:true},
+  {name:'Fondos de tríceps en banco',group:'Tríceps',kg:false},
+  {name:'Press francés',group:'Tríceps',kg:true},
+  // Piernas
+  {name:'Sentadilla clásica',group:'Piernas',kg:true},
+  {name:'Peso muerto',group:'Piernas',kg:true},
+  {name:'Estocada de arranque',group:'Piernas',kg:true},
+  {name:'Prensa de piernas',group:'Piernas',kg:true},
+  {name:'Extensión de cuádriceps',group:'Piernas',kg:true},
+  {name:'Curl femoral',group:'Piernas',kg:true},
+  {name:'Elevación de gemelos',group:'Piernas',kg:true},
+  {name:'Buenos días + extensión de brazos',group:'Piernas',kg:false},
+  // Core
+  {name:'Abdominal recto largo',group:'Core',kg:false},
+  {name:'Puente prono',group:'Core',kg:false},
+  {name:'Espinales en colchoneta',group:'Core',kg:false},
+  {name:'Caminatas a la plancha',group:'Core',kg:false},
+  {name:'Tijeras',group:'Core',kg:false},
+  {name:'Elevación de cadera',group:'Core',kg:false},
+  {name:'Abdominal cruzado con pierna extendida',group:'Core',kg:false},
+  {name:'Abdominales bisagra a una pierna',group:'Core',kg:false},
+  {name:'Abdominales en fitball',group:'Core',kg:false},
+  {name:'Abdominal en fitball desde puente prono',group:'Core',kg:false},
+  {name:'Nados',group:'Core',kg:false},
+  {name:'Rueda abdominal',group:'Core',kg:false},
+  // Cardio / Funcional
+  {name:'Cinta (cardio)',group:'Cardio',kg:false},
+  {name:'Bicicleta estática',group:'Cardio',kg:false},
+  {name:'Remo ergómetro',group:'Cardio',kg:false},
+  {name:'Burpees',group:'Cardio',kg:false},
+  {name:'Salto a la soga',group:'Cardio',kg:false},
+];
+
+// Group list for filter
+const EX_GROUPS = [...new Set(EX_LIBRARY.map(e=>e.group))];
+
+// ═══════════════════════════════════════════════
+// EXERCISE INFO (static, same as before + extras)
+// ═══════════════════════════════════════════════
+const EX_INFO = {
+  "Abdominal recto largo":         {p:["Recto abdominal"],s:["Oblicuos"],desc:"Acostado boca arriba, llevá el tronco hacia las rodillas contrayendo el abdomen.",tips:["No jalés el cuello","Exhalá al subir","Controlá la bajada"],err:"Tirar del cuello genera tensión cervical en lugar de trabajar el abdomen."},
+  "Puente prono":                  {p:["Core","Transverso"],s:["Glúteos","Espinales"],desc:"Apoyado en antebrazos y puntillas, mantené el cuerpo recto. Contraé abdomen y glúteos.",tips:["Pelvis neutral","Respirá de forma continua","Empujá el suelo con los codos"],err:"Dejar caer o elevar las caderas quita tensión del core."},
+  "Espinales en colchoneta":       {p:["Erectores espinales"],s:["Glúteos","Isquiotibiales"],desc:"Boca abajo, elevá el tronco del suelo manteniendo los pies apoyados.",tips:["No hiperextiendas el cuello","Contracción lenta","Exhalá al subir"],err:"Subir demasiado alto puede comprimir las vértebras lumbares."},
+  "Caminatas a la plancha":        {p:["Core","Hombros"],s:["Tríceps","Serrato"],desc:"Desde plancha alta, avanzá alternando manos. Mantenés la cadera estable.",tips:["Cadera quieta","Pasos cortos","Activá el core siempre"],err:"Rotar las caderas elimina el trabajo de estabilización."},
+  "Tirón dorsal polea (agarre prono)": {p:["Dorsal ancho","Redondo mayor"],s:["Bíceps","Romboides"],desc:"Sentado, jalá la barra hacia el pecho con torso levemente inclinado. Codos hacia abajo.",tips:["Iniciá con los omoplatos","No uses impulso","Controlá la subida"],err:"Inclinar demasiado el torso convierte el ejercicio en un remo."},
+  "Tríceps con polea (agarre prono)": {p:["Tríceps"],s:["Antebrazo"],desc:"De pie frente a la polea, codos pegados, extendé los antebrazos hacia abajo.",tips:["Codos fijos","Apretá el tríceps al final","Bajada controlada"],err:"Separar los codos activa los hombros y reduce la carga."},
+  "Tríceps tras nuca mancuerna (1 brazo)": {p:["Tríceps (cabeza larga)"],s:["Hombro posterior"],desc:"Sentado o de pie, mancuerna detrás de la cabeza, extendé el codo hacia arriba.",tips:["Codo apuntando al techo","Estiramiento completo en la bajada","Sostené el codo con el otro brazo"],err:"No controlar la bajada pierde el beneficio excéntrico."},
+  "Vuelos posteriores mancuernas": {p:["Deltoides posterior","Romboides"],s:["Trapecio medio","Infraespinoso"],desc:"Inclinado, abrí los brazos hacia los costados hasta la altura de los hombros.",tips:["Retracción escapular al subir","Codos levemente flexionados","Movimiento lento"],err:"Usar impulso del torso convierte el ejercicio en un remo."},
+  "Tríceps patada de burro":       {p:["Tríceps"],s:["Hombro posterior"],desc:"Apoyado en banco, extendé el antebrazo hacia atrás hasta bloquear el codo.",tips:["Brazo superior quieto","Extensión completa","Controlá la vuelta"],err:"Bajar el codo durante el movimiento quita tensión."},
+  "Dominadas asistidas":           {p:["Dorsal ancho","Bíceps"],s:["Romboides","Redondo mayor"],desc:"Con banda elástica, jalá el cuerpo hasta que el mentón supere la barra.",tips:["Escápulas abajo y atrás","Grip más ancho = más dorsal","Bajá lento"],err:"No completar el rango limita el desarrollo."},
+  "Fondos de tríceps en banco":    {p:["Tríceps"],s:["Pecho","Deltoides anterior"],desc:"Manos en el banco, bajá el cuerpo flexionando codos a 90° y subí extendiendo.",tips:["Espalda cerca del banco","Codos paralelos","Bajada controlada"],err:"Codos hacia afuera convierte el movimiento en trabajo de hombro."},
+  "Tirón dorsal polea (agarre neutro)": {p:["Dorsal ancho","Bíceps"],s:["Romboides","Redondo mayor"],desc:"Similar al agarre prono pero con palmas enfrentadas. Mayor rango y menos estrés en muñecas.",tips:["Jalá hacia el pecho","Hombros bajos","Expande el pecho abajo"],err:"Encorvar la espalda carga las vértebras cervicales."},
+  "Nados":                         {p:["Glúteos","Espinales","Hombros"],s:["Isquiotibiales","Core"],desc:"Boca abajo, levantá el brazo derecho y la pierna izquierda simultáneamente, alternando.",tips:["Movimientos cortos","Frente apoyada","Contraé glúteo al subir"],err:"Levantar demasiado alto genera hiperextensión lumbar."},
+  "Tijeras":                       {p:["Flexores de cadera","Core"],s:["Cuádriceps","Abdomen"],desc:"Acostado, piernas elevadas, alterná subidas y bajadas sin tocar el suelo.",tips:["Lumbar pegada al suelo","Sin impulso","Respiración continua"],err:"Despegar la espalda sobrecarga la zona lumbar."},
+  "Elevación de cadera":           {p:["Glúteos","Isquiotibiales"],s:["Core","Espinales"],desc:"Acostado, pies apoyados, elevá la cadera hasta línea recta hombros-rodillas.",tips:["Empuje desde talones","Mantén arriba 1 segundo","Bajá lento"],err:"Arcar demasiado la espalda carga las lumbares."},
+  "Buenos días + extensión de brazos":{p:["Isquiotibiales","Espinales"],s:["Glúteos","Hombros"],desc:"De pie, inclinación de torso hacia adelante, luego extendé brazos al frente.",tips:["Espalda recta","Bisagra de cadera","Control total"],err:"Redondear la espalda es la causa más común de lesión lumbar."},
+  "Flexo extensión de brazos":     {p:["Pecho","Tríceps"],s:["Deltoides anterior","Core"],desc:"Flexiones estándar. Variante cerrada para mayor trabajo de tríceps.",tips:["Cuerpo recto","Codos a 45°","Bajada hasta rozar el pecho"],err:"Cadera caída o elevada desconecta el core."},
+  "Bíceps con mancuernas":         {p:["Bíceps braquial"],s:["Braquiorradial","Braquial"],desc:"De pie, flexioná los codos alternando o simultáneamente. Supina al subir.",tips:["Codos pegados al cuerpo","Supina la muñeca","Bajada lenta"],err:"Balancear el torso convierte el curl en un movimiento de espalda."},
+  "Empuje de pecho mancuernas (banco plano)":{p:["Pectoral mayor"],s:["Tríceps","Deltoides anterior"],desc:"Acostado en banco plano, empujá las mancuernas hacia arriba.",tips:["Escápulas retraídas","Arco natural","Controlá la bajada"],err:"Codos más abajo que los hombros puede lesionar el manguito rotador."},
+  "Bíceps mancuernas (banco inclinado)":{p:["Bíceps braquial (cabeza larga)"],s:["Braquial"],desc:"En banco inclinado, brazos colgando, flexioná sin mover los hombros.",tips:["No elevar hombros","Rango completo","Lento en la bajada"],err:"Inclinar el torso reduce el trabajo del bíceps."},
+  "Empuje de pecho en máquina":    {p:["Pectoral mayor","Tríceps"],s:["Deltoides anterior"],desc:"Sentado, empujá las agarraderas extendiendo los codos.",tips:["Espalda apoyada siempre","No bloquees con violencia","Controlá la vuelta"],err:"Despegar la espalda incorpora trabajo de hombro no deseado."},
+  "Bíceps con polea":              {p:["Bíceps braquial"],s:["Braquial","Braquiorradial"],desc:"De pie frente a la polea baja, jalá hacia el pecho con codos fijos.",tips:["Codos al costado","Tensión constante","Supina al llegar arriba"],err:"Separar los codos activa los hombros."},
+  "Empuje de pecho barra (banco inclinado)":{p:["Pectoral mayor (porción clavicular)"],s:["Tríceps","Deltoides anterior"],desc:"En banco inclinado, bajá la barra al pecho superior y empujá.",tips:["Barra al pecho superior, no al cuello","Agarre algo más ancho que hombros","Arco natural"],err:"Bajar la barra al cuello puede lesionar los hombros."},
+  "Abdominal en fitball desde puente prono":{p:["Recto abdominal","Core"],s:["Oblicuos","Transverso"],desc:"En plancha con pies o manos en fitball, realizá flexiones abdominales.",tips:["Estabilizá el fitball antes","Cadera quieta","Respirá de forma controlada"],err:"Perder la posición puede causar caída."},
+  "Abdominal cruzado con pierna extendida":{p:["Oblicuos","Recto abdominal"],s:["Flexores de cadera"],desc:"Acostado, llevá el codo opuesto hacia la rodilla flexionada.",tips:["Rotación del tronco, no del cuello","Pierna extendida no toca el suelo","Exhalá al cruzar"],err:"Jalar del cuello es el error más común."},
+  "Abdominales bisagra a una pierna":{p:["Recto abdominal","Flexores de cadera"],s:["Oblicuos"],desc:"En bisagra sobre una pierna, flexionás el tronco con control.",tips:["Espalda recta al bajar","Equilibrio en la pierna de apoyo","Activá el core antes"],err:"Redondear la espalda puede lesionar la columna."},
+  "Abdominales en fitball":        {p:["Recto abdominal"],s:["Oblicuos","Core"],desc:"Apoyado en fitball en la zona lumbar, flexiones de tronco con mayor rango.",tips:["Fitball estable","Manos en la nuca sin jalar","Bajada completa"],err:"Fitball rodando hace que pierdas control."},
+  "Estocada de arranque":          {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales","Core"],desc:"Desde de pie, paso largo hacia adelante bajando la rodilla trasera casi al suelo.",tips:["Rodilla no supera la punta del pie","Torso erguido","Empuje desde el talón"],err:"Inclinar el torso sobrecarga la rodilla y la espalda baja."},
+  "Sentadilla clásica":            {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales","Core","Espinales"],desc:"Pies a la altura de los hombros, bajá como si fueras a sentarte, muslos paralelos.",tips:["Rodillas en línea con los pies","Talones en el suelo","Pecho arriba siempre"],err:"Rodillas hacia adentro (valgo) es la causa más común de lesión."},
+  "Peso muerto":                   {p:["Isquiotibiales","Glúteos","Espinales"],s:["Trapecio","Core","Cuádriceps"],desc:"Barra en el suelo, levantá empujando el suelo con los pies, espalda recta.",tips:["Espalda neutra siempre","Barra cerca del cuerpo","Respiración abdominal antes de levantar"],err:"Redondear la espalda baja puede causar hernias discales."},
+  "Vuelos combinados con mancuernas":{p:["Deltoides","Trapecio"],s:["Supraespinoso","Manguito rotador"],desc:"Combinación de vuelos laterales y frontales trabajando todo el hombro.",tips:["Codos levemente flexionados","No superes la altura de los hombros","Lento en ambas direcciones"],err:"Demasiado peso y balanceo activa la espalda."},
+  "Elevación de hombros":          {p:["Trapecio superior"],s:["Elevador de la escápula"],desc:"De pie con mancuernas, elevá los hombros hacia las orejas y bajá controlando.",tips:["Solo movimiento vertical","Apretá arriba 1 segundo","Peso moderado, rango completo"],err:"Rotar los hombros puede irritar la articulación acromioclavicular."},
+  "Empuje de hombros Arnold":      {p:["Deltoides","Tríceps"],s:["Trapecio","Pectoral superior"],desc:"Mancuernas frente al pecho, girá las palmas mientras empujás hacia arriba.",tips:["Rotación fluida","No bloquees los codos","Controlá la bajada con la misma rotación"],err:"Movimiento rápido elimina el beneficio de la rotación."},
+  "Remo con barra":                {p:["Dorsal ancho","Romboides"],s:["Bíceps","Trapecio medio"],desc:"Inclinado hacia adelante, jalá la barra hacia el abdomen manteniendo la espalda recta.",tips:["Espalda paralela al suelo","Codos cerca del cuerpo","Retracción escapular al llegar arriba"],err:"Encorvar la espalda para dar impulso lesiona las lumbares."},
+  "Remo con mancuerna":            {p:["Dorsal ancho","Romboides"],s:["Bíceps","Redondo mayor"],desc:"Un brazo apoyado en banco, jalá la mancuerna hasta la cadera.",tips:["Espalda paralela al suelo","Codo cerca del cuerpo","Estiramiento completo abajo"],err:"Rotar el torso al subir activa músculos equivocados."},
+  "Curl martillo":                 {p:["Braquiorradial","Bíceps"],s:["Braquial"],desc:"Posición neutral de la muñeca (como martillo), flexioná los codos.",tips:["Muñeca neutral siempre","Codos fijos al cuerpo","Rango completo"],err:"Balancear el torso quita tensión del bíceps."},
+  "Press francés":                 {p:["Tríceps"],s:["Hombro posterior"],desc:"Acostado, baja la barra o mancuernas detrás de la cabeza flexionando los codos.",tips:["Codos apuntando al techo siempre","Cabeza fuera del banco para mayor rango","Controlá la bajada"],err:"Abriendo los codos se pierde tensión en el tríceps."},
+  "Prensa de piernas":             {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales"],desc:"En la máquina, empujá la plataforma extendiendo las rodillas sin bloquearlas.",tips:["Pies a la altura de hombros","No bloquees las rodillas arriba","Bajada hasta 90°"],err:"Bajar demasiado despega los glúteos del asiento y carga las lumbares."},
+  "Extensión de cuádriceps":       {p:["Cuádriceps"],s:[],desc:"En la máquina, extendé las rodillas hasta la posición horizontal.",tips:["Movimiento lento y controlado","Apretá el cuádriceps arriba","No uses impulso"],err:"Patear con impulso en lugar de contraer activa otros músculos."},
+  "Curl femoral":                  {p:["Isquiotibiales"],s:["Gemelos"],desc:"En la máquina, flexioná las rodillas llevando los talones hacia los glúteos.",tips:["Caderas pegadas al soporte","Movimiento completo","Controlá la bajada"],err:"Levantar las caderas para dar impulso reduce el trabajo del isquiotibial."},
+  "Sentadilla sumo":               {p:["Glúteos","Aductores","Cuádriceps"],s:["Isquiotibiales"],desc:"Pies más abiertos que los hombros, puntas hacia afuera, bajá manteniendo el torso erguido.",tips:["Rodillas en línea con puntas de pie","Talones en el suelo","Empuje desde los talones"],err:"Rodillas colapsando hacia adentro es el error más común."},
+  "Pull over":                     {p:["Dorsal ancho","Pectoral"],s:["Serrato anterior","Core"],desc:"Acostado en banco, llevá la mancuerna desde el pecho hacia atrás de la cabeza con brazos semi-extendidos.",tips:["Arco natural en la espalda","Rango completo de movimiento","Controlá el regreso"],err:"Flexionar demasiado los codos convierte el ejercicio en un press."},
+  "Aperturas con mancuernas":      {p:["Pectoral mayor"],s:["Deltoides anterior","Bíceps"],desc:"Acostado, abrí los brazos hacia los costados manteniendo un leve flexo en los codos.",tips:["Codos levemente flexionados siempre","Bajá hasta sentir estiramiento","Juntá como si abrazaras un árbol"],err:"Bajar demasiado sin control puede lesionar la articulación del hombro."},
+  "Cruces en polea":               {p:["Pectoral mayor"],s:["Deltoides anterior"],desc:"De pie entre las poleas, cruzá los brazos hacia adelante y abajo contrayendo el pecho.",tips:["Ligera inclinación hacia adelante","Mantén el arco del movimiento","Contraé fuerte en el cruce"],err:"Usar los brazos como palancas sin contraer el pecho reduce la efectividad."},
+  "Elevación de gemelos":          {p:["Gastrocnemio","Sóleo"],s:[],desc:"De pie o en máquina, elevá el talón lo más alto posible contrayendo el gemelo.",tips:["Rango completo de movimiento","Mantenés arriba 1 segundo","Bajada lenta y controlada"],err:"Rango incompleto no desarrolla adecuadamente el músculo."},
+  "Cinta (cardio)":                {p:["Cuádriceps","Glúteos","Isquiotibiales"],s:["Core","Gemelos"],desc:"Caminata o trote en cinta. Configurá tiempo, velocidad e inclinación.",tips:["Inclinación mínima de 1% para simular exterior","Postura erguida","Ajustá la velocidad gradualmente"],err:"Sujetarse de los pasamanos reduce el gasto calórico y afecta la postura."},
+  "Burpees":                       {p:["Todo el cuerpo"],s:["Core","Hombros","Cuádriceps"],desc:"Desde de pie, bajá a plancha, hacé una flexión, volvé y saltá con los brazos arriba.",tips:["Ritmo constante más que velocidad","Core activado en la plancha","Aterrizaje suave"],err:"Perder la posición de plancha por cansancio lesiona la espalda baja."},
+  "Rueda abdominal":               {p:["Recto abdominal","Core profundo"],s:["Dorsales","Hombros"],desc:"Desde rodillas, extendé la rueda hacia adelante manteniéndote cerca del suelo y volvé.",tips:["Core apretado durante todo el movimiento","Extendé hasta donde puedas controlar","Volvé lento"],err:"Dejar caer las caderas al extenderse comprime la columna lumbar."},
+};
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+let navStack = [];
+let currentDayIdx = 0;
+let currentSportId = null;
+
+const NAV_TABS = ['home','stats','coach','more'];
+
+function navTo(id) {
+  const screens = document.querySelectorAll('.screen');
+  screens.forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('s-'+id);
+  if (el) el.classList.add('active');
+
+  // Update nav bar
+  NAV_TABS.forEach(t => document.getElementById('ni-'+t)?.classList.remove('active'));
+  if (NAV_TABS.includes(id)) {
+    document.getElementById('ni-'+id)?.classList.add('active');
+    navStack = [id];
+  } else {
+    navStack.push(id);
+  }
+
+  // Show/hide nav bar
+  const hideNav = ['onboard','workout','sport'].includes(id);
+  document.getElementById('mainNav').style.display = hideNav ? 'none' : 'flex';
+
+  // Render triggers
+  if (id==='home') renderHome();
+  if (id==='stats') renderStats();
+  if (id==='coach') renderCoach();
+  if (id==='history') renderHistory();
+  if (id==='routine-editor') renderRoutineEditor();
+  if (id==='sports') renderSports();
+  if (id==='supplements') renderSupplements();
+  if (id==='settings') loadSettings();
+}
+
+function navBack() {
+  navStack.pop();
+  const prev = navStack[navStack.length-1] || 'home';
+  navStack.pop();
+  navTo(prev);
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toastEl');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2500);
+}
+
+// ═══════════════════════════════════════════════
+// ONBOARDING
+// ═══════════════════════════════════════════════
+let obDayCount = 3;
+
+function initOnboarding() {
+  const routine = db.routine.get();
+  if (routine && routine.days && routine.days.length > 0) {
+    // Already set up
+    document.getElementById('mainNav').style.display = 'flex';
+    navTo('home');
+    return;
+  }
+  // Show onboarding
+  navTo('onboard');
+  renderObProgress(0);
+}
+
+function renderObProgress(step) {
+  const total = 3;
+  const el = document.getElementById('obProgress');
+  el.innerHTML = Array.from({length:total},(_,i)=>`<div class="onboard-dot${i<=step?' done':''}"></div>`).join('');
+}
+
+function selectDayCount(n) {
+  obDayCount = n;
+  document.querySelectorAll('#obDayPicker .pill').forEach((p,i)=>{
+    p.classList.toggle('active', i+1===n);
+  });
+  // Regenerate day name inputs
+  renderObDayNames();
+}
+
+function renderObDayNames() {
+  const container = document.getElementById('obDayNames');
+  const defaults = ['Espalda · Tríceps','Pecho · Bíceps','Piernas · Hombros','Full Body A','Full Body B','Upper','Lower'];
+  container.innerHTML = '';
+  for(let i=0; i<obDayCount; i++) {
+    const color = DAY_COLORS[i % DAY_COLORS.length];
+    container.innerHTML += `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></div>
+        <input class="input-f" type="text" id="obDay${i}" placeholder="${defaults[i]||'Día '+(i+1)}" style="flex:1;"
+          oninput="this.classList.toggle('filled',!!this.value)">
+      </div>`;
+  }
+}
+
+function obNext(step) {
+  if (step===0) {
+    const name = document.getElementById('obName').value.trim();
+    if (!name) { toast('¡Ingresá tu nombre!'); return; }
+    renderObProgress(1);
+    renderObDayNames();
+  }
+  if (step===1) {
+    const rName = document.getElementById('obRoutineName').value.trim();
+    if (!rName) { toast('Poné un nombre a tu rutina'); return; }
+    renderObProgress(2);
+  }
+  document.getElementById(`ob-step-${step}`).classList.remove('active');
+  document.getElementById(`ob-step-${step+1}`).classList.add('active');
+}
+
+function obBack(step) {
+  document.getElementById(`ob-step-${step}`).classList.remove('active');
+  document.getElementById(`ob-step-${step-1}`).classList.add('active');
+  renderObProgress(step-1);
+}
+
+function obFinish() {
+  const name = document.getElementById('obName').value.trim();
+  const rName = document.getElementById('obRoutineName').value.trim();
+
+  const days = [];
+  for(let i=0; i<obDayCount; i++) {
+    const val = document.getElementById(`obDay${i}`)?.value.trim() || `Día ${i+1}`;
+    days.push({ id: Date.now()+i, name: val, exercises: [] });
+  }
+
+  const routine = { name: rName, days };
+  db.routine.set(routine);
+  db.profile.set({ name, peso:0, altura:0, edad:0, sexo:'M' });
+
+  document.getElementById('mainNav').style.display = 'flex';
+  navTo('home');
+  toast(`¡Bienvenido, ${name}! 💪`);
+}
+
+// ═══════════════════════════════════════════════
+// ROUTINE EDITOR
+// ═══════════════════════════════════════════════
+let editingDayIdx = null;
+let editingDayExercises = [];
+let editingExIdx = null;
+let pendingExName = null;
+let eeKgOn = true;
+let predefCallback = null;
+
+function renderRoutineEditor() {
+  const routine = db.routine.get() || {name:'Mi rutina', days:[]};
+  document.getElementById('reRoutineName').value = routine.name || '';
+  const container = document.getElementById('reDayList');
+  if (!routine.days || !routine.days.length) {
+    container.innerHTML = `<div class="no-data">No tenés días creados.<br>Tocá "+ Día" para agregar uno.</div>`;
+    return;
+  }
+  container.innerHTML = routine.days.map((day, di) => {
+    const color = DAY_COLORS[di % DAY_COLORS.length];
+    const exCount = day.exercises?.length || 0;
+    return `<div class="re-day">
+      <div class="re-day-header" onclick="toggleReDay(${di})">
+        <div class="color-dot" style="background:${color}"></div>
+        <div style="flex:1;">
+          <div class="re-day-name">${day.name}</div>
+          <div class="re-day-sub">${exCount} ejercicio${exCount!==1?'s':''}</div>
+        </div>
+        <button class="btn-g" onclick="event.stopPropagation();openEditDay(${di})" style="margin-right:8px;padding:6px 10px;">✏️</button>
+        <div style="color:var(--muted);font-size:16px;" id="reChev${di}">›</div>
+      </div>
+      <div class="re-day-body" id="reBody${di}">
+        ${!exCount ? '<div style="color:var(--muted);font-size:13px;padding:8px 0;">Sin ejercicios aún.</div>' :
+          day.exercises.map((ex,ei)=>`
+            <div class="re-ex-row">
+              <div class="re-ex-name">${ex.name}</div>
+              <div class="re-ex-meta">${ex.series}×${ex.reps}${ex.kg?' · kg':''}</div>
+            </div>`).join('')}
+        <button class="btn-g accent" onclick="openEditDay(${di})" style="margin-top:10px;width:100%;justify-content:center;">✏️ Editar día completo</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleReDay(di) {
+  const body = document.getElementById(`reBody${di}`);
+  const chev = document.getElementById(`reChev${di}`);
+  const open = body.classList.toggle('open');
+  chev.textContent = open ? '‹' : '›';
+}
+
+function saveRoutineName() {
+  const routine = db.routine.get() || {name:'',days:[]};
+  routine.name = document.getElementById('reRoutineName').value.trim() || 'Mi rutina';
+  db.routine.set(routine);
+  toast('✓ Nombre guardado');
+}
+
+function openAddDay() {
+  editingDayIdx = null;
+  editingDayExercises = [];
+  document.getElementById('dayEditLabel').textContent = 'NUEVO DÍA';
+  document.getElementById('dayEditTitle').textContent = 'Configurar día';
+  document.getElementById('deNombre').value = '';
+  document.getElementById('deDeleteBtn').style.display = 'none';
+  renderDeExList();
+  document.getElementById('dayEditOverlay').classList.add('open');
+}
+
+function openEditDay(di) {
+  const routine = db.routine.get();
+  if (!routine?.days?.[di]) return;
+  editingDayIdx = di;
+  editingDayExercises = JSON.parse(JSON.stringify(routine.days[di].exercises || []));
+  document.getElementById('dayEditLabel').textContent = `DÍA ${di+1}`;
+  document.getElementById('dayEditTitle').textContent = routine.days[di].name;
+  document.getElementById('deNombre').value = routine.days[di].name;
+  document.getElementById('deDeleteBtn').style.display = 'block';
+  renderDeExList();
+  document.getElementById('dayEditOverlay').classList.add('open');
+  document.getElementById('dayEditOverlay').classList.add('open');
+  // Close workout edit btn overlay if opened from workout
+  document.getElementById('dayEditOverlay').classList.add('open');
+}
+
+function renderDeExList() {
+  const container = document.getElementById('deExList');
+  if (!editingDayExercises.length) {
+    container.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0 4px;">Sin ejercicios. Agregá uno abajo.</div>`;
+    return;
+  }
+  container.innerHTML = editingDayExercises.map((ex,i)=>`
+    <div class="re-ex-row">
+      <div class="re-ex-name" style="font-size:13px;">${ex.name}</div>
+      <div class="re-ex-meta">${ex.series}×${ex.reps}${ex.kg?' · kg':''}</div>
+      <button class="btn-g" onclick="editExInDay(${i})" style="padding:4px 8px;margin-left:4px;">✏️</button>
+      <button class="btn-g danger" onclick="removeExFromDay(${i})" style="padding:4px 8px;margin-left:2px;">✕</button>
+    </div>`).join('');
+}
+
+function openPredefForDay() {
+  predefCallback = (name, isKg) => {
+    pendingExName = name;
+    eeKgOn = isKg;
+    editingExIdx = null;
+    document.getElementById('exEditName').textContent = name;
+    document.getElementById('eeS').value = 4;
+    document.getElementById('eeR').value = 10;
+    document.getElementById('eeNota').value = '';
+    updateKgToggleUI();
+    document.getElementById('predefOverlay').classList.remove('open');
+    document.getElementById('exEditOverlay').classList.add('open');
+  };
+  openPredef();
+}
+
+function editExInDay(i) {
+  const ex = editingDayExercises[i];
+  editingExIdx = i;
+  pendingExName = ex.name;
+  eeKgOn = ex.kg;
+  document.getElementById('exEditName').textContent = ex.name;
+  document.getElementById('eeS').value = ex.series;
+  document.getElementById('eeR').value = ex.reps;
+  document.getElementById('eeNota').value = ex.nota || '';
+  updateKgToggleUI();
+  document.getElementById('exEditOverlay').classList.add('open');
+}
+
+function removeExFromDay(i) {
+  editingDayExercises.splice(i, 1);
+  renderDeExList();
+}
+
+function toggleKg() {
+  eeKgOn = !eeKgOn;
+  updateKgToggleUI();
+}
+
+function updateKgToggleUI() {
+  const toggle = document.getElementById('eeKgToggle');
+  const dot = toggle.querySelector('div');
+  if (eeKgOn) {
+    toggle.style.background = 'var(--accent)';
+    dot.style.right = '3px';
+  } else {
+    toggle.style.background = 'var(--surface2)';
+    dot.style.right = 'calc(100% - 23px)';
+  }
+}
+
+function saveExEdit() {
+  const s = parseInt(document.getElementById('eeS').value) || 4;
+  const r = parseInt(document.getElementById('eeR').value) || 10;
+  const nota = document.getElementById('eeNota').value.trim();
+  const ex = { name: pendingExName, series: s, reps: r, kg: eeKgOn, nota };
+  if (editingExIdx !== null) {
+    editingDayExercises[editingExIdx] = ex;
+  } else {
+    editingDayExercises.push(ex);
+  }
+  renderDeExList();
+  document.getElementById('exEditOverlay').classList.remove('open');
+}
+
+function saveDayEdit() {
+  const nombre = document.getElementById('deNombre').value.trim();
+  if (!nombre) { toast('Poné un nombre al día'); return; }
+  const routine = db.routine.get() || {name:'Mi rutina', days:[]};
+  if (editingDayIdx !== null) {
+    routine.days[editingDayIdx].name = nombre;
+    routine.days[editingDayIdx].exercises = editingDayExercises;
+  } else {
+    routine.days.push({ id: Date.now(), name: nombre, exercises: editingDayExercises });
+  }
+  db.routine.set(routine);
+  document.getElementById('dayEditOverlay').classList.remove('open');
+  toast('✓ Día guardado');
+  renderRoutineEditor();
+  renderHome();
+}
+
+function deleteDay() {
+  if (!confirm('¿Eliminar este día y todos sus datos?')) return;
+  const routine = db.routine.get();
+  routine.days.splice(editingDayIdx, 1);
+  db.routine.set(routine);
+  document.getElementById('dayEditOverlay').classList.remove('open');
+  toast('Día eliminado');
+  renderRoutineEditor();
+  renderHome();
+}
+
+// ═══════════════════════════════════════════════
+// PREDEFINED EXERCISE PICKER
+// ═══════════════════════════════════════════════
+let predefFilterGroup = null;
+
+function openPredef() {
+  predefFilterGroup = null;
+  document.getElementById('predefQ').value = '';
+  renderPredefFilters();
+  renderPredef();
+  document.getElementById('predefOverlay').classList.add('open');
+}
+
+function renderPredefFilters() {
+  const container = document.getElementById('predefFilters');
+  container.innerHTML = `<div class="pill${!predefFilterGroup?' active':''}" onclick="predefSetGroup(null)">Todos</div>` +
+    EX_GROUPS.map(g=>`<div class="pill${predefFilterGroup===g?' active':''}" onclick="predefSetGroup('${g}')">${g}</div>`).join('');
+}
+
+function predefSetGroup(g) {
+  predefFilterGroup = g;
+  renderPredefFilters();
+  renderPredef();
+}
+
+function renderPredef() {
+  const q = document.getElementById('predefQ').value.toLowerCase();
+  const items = EX_LIBRARY.filter(e => {
+    if (predefFilterGroup && e.group !== predefFilterGroup) return false;
+    if (q && !e.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const container = document.getElementById('predefItems');
+  if (!items.length) {
+    // Also allow custom name
+    container.innerHTML = `<div class="predef-item" onclick="selectPredefCustom('${document.getElementById('predefQ').value}')">
+      <div><div style="font-size:14px;">+ Agregar "<strong>${document.getElementById('predefQ').value || '...'}</strong>"</div>
+      <div style="font-size:11px;color:var(--muted);">Nombre personalizado</div></div><div style="color:var(--muted);">›</div></div>`;
+    return;
+  }
+  // Group by group
+  let lastGroup = null;
+  let html = '';
+  items.forEach(e => {
+    if (!predefFilterGroup && e.group !== lastGroup) {
+      lastGroup = e.group;
+      html += `<div style="padding:8px 18px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:600;background:var(--surface2);">${e.group}</div>`;
+    }
+    html += `<div class="predef-item" onclick="selectPredef('${e.name.replace(/'/g,"\\'")}',${e.kg})">
+      <div style="flex:1;"><div style="font-size:14px;">${e.name}</div><div style="font-size:11px;color:var(--muted);">${e.kg?'Con peso':'Sin peso'}</div></div>
+      <div style="color:var(--muted);">›</div></div>`;
+  });
+  // Custom option at bottom
+  if (q) html += `<div class="predef-item" onclick="selectPredefCustom('${q}')">
+    <div><div style="font-size:14px;">+ Agregar "<strong>${q}</strong>"</div><div style="font-size:11px;color:var(--muted);">Nombre personalizado</div></div><div style="color:var(--muted);">›</div></div>`;
+  container.innerHTML = html;
+}
+
+function selectPredef(name, isKg) {
+  if (predefCallback) predefCallback(name, isKg);
+}
+
+function selectPredefCustom(name) {
+  if (!name.trim()) return;
+  if (predefCallback) predefCallback(name.trim(), true);
+}
+
+
+// ═══════════════════════════════════════════════
+// HOME
+// ═══════════════════════════════════════════════
+function renderHome() {
+  const profile = db.profile.get();
+  const routine = db.routine.get();
+  const sessions = db.sessions.get();
+  const sportLogs = db.sportLogs.get();
+  const sports = db.sports.get();
+
+  const userName = profile.name || 'Atleta';
+  document.getElementById('homeTitle').textContent = userName.toUpperCase();
+  document.getElementById('homeSubtitle').textContent = `${routine?.name || 'Tu rutina'} · ${new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'})}`;
+
+  // Stats
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate()-now.getDay()+1); weekStart.setHours(0,0,0,0);
+  const gymThisWeek = sessions.filter(s=>new Date(s.ts)>=weekStart).length;
+  const sportThisWeek = sportLogs.filter(s=>new Date(s.ts)>=weekStart).length;
+  const totalThisWeek = gymThisWeek + sportThisWeek;
+
+  // Streak
+  const allDates = [...sessions.map(s=>s.ts), ...sportLogs.map(s=>s.ts)]
+    .map(ts=>new Date(ts).toISOString().slice(0,10))
+    .filter((v,i,a)=>a.indexOf(v)===i).sort().reverse();
+  let streak = 0;
+  const today = new Date().toISOString().slice(0,10);
+  let check = today;
+  for(const d of allDates) {
+    if(d===check) { streak++; const dt=new Date(check); dt.setDate(dt.getDate()-1); check=dt.toISOString().slice(0,10); }
+    else if(d<check) break;
+  }
+
+  document.getElementById('hTotal').textContent = sessions.length + sportLogs.length;
+  document.getElementById('hWeek').textContent = totalThisWeek;
+  document.getElementById('hStreak').textContent = streak;
+
+  // Week dots
+  const wd = document.getElementById('weekDots');
+  const dayNames = ['L','M','X','J','V','S','D'];
+  const todayDow = (now.getDay()+6)%7;
+  wd.innerHTML = dayNames.map((d,i)=>{
+    const dt = new Date(weekStart); dt.setDate(weekStart.getDate()+i);
+    const key = dt.toISOString().slice(0,10);
+    const hasGym = sessions.some(s=>s.ts.slice(0,10)===key);
+    const hasSport = sportLogs.some(s=>s.ts.slice(0,10)===key);
+    const isToday = i===todayDow;
+    let bg = ''; let color = '';
+    if(hasGym && hasSport) { bg=`background:var(--accent)`; color='color:#000;border-color:var(--accent)'; }
+    else if(hasGym) { bg=`background:var(--accent)`; color='color:#000;border-color:var(--accent)'; }
+    else if(hasSport) { bg=`background:var(--orange)`; color='color:#000;border-color:var(--orange)'; }
+    return `<div class="wdot${isToday?' today':''}" style="${bg};${color}">${d}</div>`;
+  }).join('');
+
+  // Day cards
+  const days = routine?.days || [];
+  const dc = document.getElementById('dayCCards');
+  dc.innerHTML = days.map((day,di)=>{
+    const daySessions = sessions.filter(s=>s.dayIdx===di);
+    const last = daySessions[daySessions.length-1];
+    const lastStr = last ? `Último: ${new Date(last.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})}` : 'Sin sesiones aún';
+    const exCount = day.exercises?.length || 0;
+    return `<div class="day-card c${di%7}" onclick="startWorkout(${di})">
+      <div class="day-card-inner">
+        <div>
+          <div class="day-tag">Día ${di+1}</div>
+          <div class="day-name">${day.name}</div>
+          <div class="day-sub">${exCount} ejercicio${exCount!==1?'s':''}</div>
+          <div class="day-last">${lastStr}</div>
+        </div>
+        <div class="day-arrow">›</div>
+      </div>
+    </div>`;
+  }).join('') || `<div class="no-data">No tenés días en tu rutina.<br><button class="btn-g accent" onclick="navTo('routine-editor')" style="margin-top:10px;">Crear rutina →</button></div>`;
+
+  // Sport cards
+  const sc = document.getElementById('sportCards');
+  sc.innerHTML = sports.map(sport=>{
+    const logs = sportLogs.filter(l=>l.sportId===sport.id);
+    const last = logs[logs.length-1];
+    const lastStr = last ? `Último: ${new Date(last.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})}` : 'Sin actividades aún';
+    return `<div class="sport-card" onclick="startSport('${sport.id}')">
+      <div class="day-card-inner">
+        <div>
+          <div class="day-tag">${sport.rol || 'Deporte'}</div>
+          <div class="day-name">${sport.emoji||'⚽'} ${sport.name}</div>
+          <div class="day-sub">${logs.length} actividad${logs.length!==1?'es':''}</div>
+          <div class="day-last" style="color:var(--orange);">${lastStr}</div>
+        </div>
+        <div class="day-arrow">›</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  renderSuppWidget();
+}
+
+// ═══════════════════════════════════════════════
+// SUPP WIDGET (home)
+// ═══════════════════════════════════════════════
+function renderSuppWidget() {
+  const supps = db.supps.get();
+  const today = db.suppToday.get();
+  const container = document.getElementById('suppWidget');
+  if (!supps.length) {
+    container.innerHTML = `<div style="margin:0 16px 24px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--muted);">
+      Sin suplementos. <span style="color:var(--accent);cursor:pointer;" onclick="navTo('supplements')">Agregar →</span></div>`;
+    return;
+  }
+  const done = supps.filter(s=>today[s.id]?.done).length;
+  const pct = Math.round(done/supps.length*100);
+  container.innerHTML = `<div class="supp-widget">
+    <div class="sw-head">
+      <div class="sw-title">💊 Suplementos de hoy</div>
+      <div style="font-size:11px;color:${done===supps.length?'var(--accent)':'var(--muted)'};">${done}/${supps.length}</div>
+    </div>
+    <div style="margin:0 14px 10px;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;">
+      <div style="height:100%;width:${pct}%;background:var(--accent);transition:width .4s;border-radius:2px;"></div>
+    </div>
+    ${supps.slice(0,4).map(s=>{
+      const chk = today[s.id]?.done;
+      return `<div class="sw-row" onclick="toggleSupp('${s.id}')">
+        <div class="sw-dot${chk?' done':''}"></div>
+        <div class="sw-name${chk?' done':''}">  ${s.name}</div>
+        ${chk?`<div class="sw-time">${today[s.id].hora}</div>`:''}
+      </div>`;
+    }).join('')}
+    ${supps.length>4?`<div style="padding:8px 14px;font-size:11px;color:var(--accent);cursor:pointer;" onclick="navTo('supplements')">Ver todos (${supps.length}) →</div>`:''}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// WORKOUT
+// ═══════════════════════════════════════════════
+let pendingSession = null;
+let infoCache = {};
+
+function startWorkout(di) {
+  const routine = db.routine.get();
+  if (!routine?.days?.[di]) return;
+  currentDayIdx = di;
+  const day = routine.days[di];
+  document.getElementById('wLabel').textContent = `Día ${di+1}`;
+  document.getElementById('wName').textContent = day.name.toUpperCase();
+  renderExList(di);
+  navTo('workout');
+}
+
+function renderExList(di) {
+  const routine = db.routine.get();
+  const day = routine.days[di];
+  const hidden = db.hidden.get();
+  const sessions = db.sessions.get().filter(s=>s.dayIdx===di);
+  const container = document.getElementById('exList');
+  let html = '';
+
+  // Warmup
+  html += `<div class="tempo-block warm">
+    <div class="tempo-header" onclick="toggleTempo('warm')">
+      <span style="font-size:16px;">🔥</span>
+      <div style="flex:1;"><div class="tempo-title" style="color:#8fcc44;">Calentamiento</div><div style="font-size:11px;color:var(--muted);">Cinta · tocá para registrar</div></div>
+      <span id="warmChev" style="color:var(--muted);font-size:16px;transition:transform .2s">›</span>
+    </div>
+    <div class="tempo-body" id="warmBody">
+      <div class="tempo-grid">
+        <div class="tempo-field"><label>Tiempo (min)</label><input class="input-f sm" type="number" inputmode="decimal" id="warmT" placeholder="10" oninput="this.classList.toggle('filled',!!this.value)"></div>
+        <div class="tempo-field"><label>Velocidad (km/h)</label><input class="input-f sm" type="number" inputmode="decimal" id="warmV" placeholder="6.0" oninput="this.classList.toggle('filled',!!this.value)"></div>
+        <div class="tempo-field"><label>Inclinación (%)</label><input class="input-f sm" type="number" inputmode="decimal" id="warmI" placeholder="1.5" oninput="this.classList.toggle('filled',!!this.value)"></div>
+      </div>
+    </div>
+  </div>`;
+
+  // Exercises
+  day.exercises.forEach((ex, ei) => {
+    const hid = hidden[`${di}_${ei}`];
+    const exSessions = sessions.map(s=>s.exercises?.[ei]).filter(Boolean);
+    const badge = getExBadge(exSessions);
+    const lastKgStr = badge?.lastKg ? `${badge.lastKg}kg` : '';
+
+    html += `<div class="ex-card${hid?' skipped':''}" id="exCard${ei}">
+      <div class="ex-header" onclick="toggleEx(${ei})">
+        <div style="flex:1;">
+          <div class="ex-num">EJERCICIO ${ei+1}${hid?' · OCULTO':''}</div>
+          <div class="ex-name">${ex.name}</div>
+          ${ex.nota?`<div class="ex-note">${ex.nota}</div>`:''}
+          ${badge?`<div style="margin-top:6px;">${renderBadge(badge)} ${lastKgStr?`<span style="font-size:11px;color:var(--muted);margin-left:4px;">últ. ${lastKgStr}</span>`:''}</div>`:''}
+        </div>
+        <div class="ex-chev" id="exChev${ei}">›</div>
+      </div>
+      <div class="ex-actions">
+        <button class="btn-g" onclick="openInfo(${ei},'${ex.name.replace(/'/g,"\\'")}')">💡</button>
+        <button class="btn-g" onclick="skipEx(${ei})" id="skipBtn${ei}">${hid?'Mostrando':'⏭ Saltear'}</button>
+        <button class="btn-g${hid?'':' danger'}" onclick="hideEx(${ei})" id="hideBtn${ei}">${hid?'👁 Mostrar':'🚫 Ocultar'}</button>
+      </div>
+      <div class="ex-body" id="exBody${ei}">
+        <div class="series-grid${!ex.kg?' nokg':''}">
+          ${ex.kg?'<div class="s-head"></div><div class="s-head">Reps</div><div class="s-head">Kg</div><div class="s-head">✓</div>':
+                  '<div class="s-head"></div><div class="s-head">Reps</div><div class="s-head">✓</div>'}
+          ${Array.from({length:ex.series},(_,si)=>{
+            const prevKg = badge?.lastKg || '';
+            return `<div class="s-lbl">${si+1}</div>
+              <input class="input-f sm${si===0?' filled':''}" type="number" inputmode="decimal" id="r${ei}_${si}" value="${ex.reps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
+              ${ex.kg?`<input class="input-f sm${prevKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="${prevKg}" value="${prevKg}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
+              <input type="checkbox" id="c${ei}_${si}" style="width:20px;height:20px;accent-color:var(--accent);cursor:pointer;" checked>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // Extra exercise
+  html += `<div class="extra-section">
+    <div class="extra-title">+ EJERCICIO EXTRA</div>
+    <div class="extra-row">
+      <input class="input-f" id="extraName" type="text" placeholder="Nombre del ejercicio" style="flex:1;">
+      <button class="btn-g" onclick="openPredefForExtra()">📋</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Series</label>
+        <div class="stepper"><button class="step-btn" onclick="stepVal('extraS',-1)">−</button><div class="step-val" id="extraS">3</div><button class="step-btn" onclick="stepVal('extraS',1)">+</button></div>
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Reps</label>
+        <div class="stepper"><button class="step-btn" onclick="stepVal('extraR',-1)">−</button><div class="step-val" id="extraR">10</div><button class="step-btn" onclick="stepVal('extraR',1)">+</button></div>
+      </div>
+    </div>
+    <button class="btn-g" onclick="openInfo('extra',document.getElementById('extraName').value)">💡 Saber más</button>
+  </div>`;
+
+  // Cooldown
+  html += `<div class="tempo-block cool" style="margin-bottom:0;">
+    <div class="tempo-header" onclick="toggleTempo('cool')">
+      <span style="font-size:16px;">❄️</span>
+      <div style="flex:1;"><div class="tempo-title" style="color:#44aacc;">Vuelta a la calma</div><div style="font-size:11px;color:var(--muted);">Estiramiento · tocá para registrar</div></div>
+      <span id="coolChev" style="color:var(--muted);font-size:16px;transition:transform .2s">›</span>
+    </div>
+    <div class="tempo-body" id="coolBody">
+      <div class="tempo-grid">
+        <div class="tempo-field"><label>Tiempo (min)</label><input class="input-f sm" type="number" inputmode="decimal" id="coolT" placeholder="10" oninput="this.classList.toggle('filled',!!this.value)"></div>
+      </div>
+    </div>
+  </div>`;
+
+  html += `<div style="height:10px;"></div>`;
+  container.innerHTML = html;
+}
+
+function toggleTempo(id) {
+  const body = document.getElementById(`${id}Body`);
+  const chev = document.getElementById(`${id}Chev`);
+  const open = body.classList.toggle('open');
+  chev.style.transform = open ? 'rotate(90deg)' : '';
+}
+
+function toggleEx(ei) {
+  const body = document.getElementById(`exBody${ei}`);
+  const chev = document.getElementById(`exChev${ei}`);
+  const open = body.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+function skipEx(ei) {
+  const card = document.getElementById(`exCard${ei}`);
+  card.classList.toggle('skipped');
+  const btn = document.getElementById(`skipBtn${ei}`);
+  btn.textContent = card.classList.contains('skipped') ? 'Incluir' : '⏭ Saltear';
+}
+
+function hideEx(ei) {
+  const hidden = db.hidden.get();
+  const key = `${currentDayIdx}_${ei}`;
+  if (hidden[key]) delete hidden[key];
+  else hidden[key] = true;
+  db.hidden.set(hidden);
+  renderExList(currentDayIdx);
+}
+
+function stepVal(id, delta) {
+  const el = document.getElementById(id);
+  const v = parseInt(el.textContent) + delta;
+  el.textContent = Math.max(1, v);
+}
+
+function openPredefForExtra() {
+  predefCallback = (name) => {
+    document.getElementById('extraName').value = name;
+    document.getElementById('predefOverlay').classList.remove('open');
+  };
+  openPredef();
+}
+
+function getExBadge(exSessions) {
+  if (!exSessions.length) return null;
+  const last = exSessions[exSessions.length-1];
+  if (!last) return null;
+  const prev = exSessions.length>1 ? exSessions[exSessions.length-2] : null;
+
+  const completedS = last.series?.filter(s=>s.done).length || 0;
+  const targetS = last.series?.length || 0;
+  const avgReps = last.series?.filter(s=>s.done).reduce((a,s)=>a+(s.reps||0),0) / (completedS||1);
+  const maxKg = Math.max(0,...(last.series?.filter(s=>s.done&&s.kg).map(s=>s.kg)||[]));
+  const prevKg = prev ? Math.max(0,...(prev.series?.filter(s=>s.done&&s.kg).map(s=>s.kg)||[])) : 0;
+  const targetReps = exSessions[0]?.reps || 10;
+
+  let signal = 'info', text = '', suggestion = null;
+
+  if (prevKg > 0 && maxKg > prevKg) {
+    signal='hold'; text='✓ Subiste peso'; suggestion={type:'up_done',prev:prevKg,cur:maxKg};
+  } else if (completedS>=targetS && avgReps>=targetReps*0.9) {
+    signal='up'; text='⬆ Listo para subir';
+    const suggestedKg = maxKg ? Math.round((maxKg*1.05)*2)/2 : null;
+    suggestion={type:'ready_up',suggestedKg};
+  } else if (completedS<targetS || avgReps<targetReps*0.7) {
+    signal='warn'; text='⚠ Reps bajas';
+  } else {
+    signal='hold'; text='✓ Consolidando';
+  }
+
+  return { signal, text, lastKg: maxKg||null, suggestion };
+}
+
+function renderBadge(badge) {
+  if (!badge) return '';
+  const cls = badge.signal==='up'?'up':badge.signal==='warn'?'warn':badge.signal==='hold'&&badge.suggestion?.type==='up_done'?'hold':'info';
+  return `<span class="badge ${cls}">${badge.text}</span>`;
+}
+
+function saveSession() {
+  const routine = db.routine.get();
+  const day = routine.days[currentDayIdx];
+  const now = new Date().toISOString();
+  const exercises = {};
+  let completed = 0, skipped = 0;
+
+  day.exercises.forEach((ex, ei) => {
+    const card = document.getElementById(`exCard${ei}`);
+    if (card?.classList.contains('skipped')) { skipped++; return; }
+    const series = Array.from({length:ex.series},(_,si)=>{
+      const reps = parseFloat(document.getElementById(`r${ei}_${si}`)?.value)||0;
+      const kg = ex.kg ? parseFloat(document.getElementById(`k${ei}_${si}`)?.value)||0 : null;
+      const done = document.getElementById(`c${ei}_${si}`)?.checked||false;
+      return {reps, kg, done};
+    });
+    exercises[ei] = {name:ex.name, reps:ex.reps, kg:ex.kg, series};
+    if(series.some(s=>s.done)) completed++;
+  });
+
+  // Extra
+  const extraName = document.getElementById('extraName').value.trim();
+  if (extraName) {
+    const es = parseInt(document.getElementById('extraS').textContent)||3;
+    const er = parseInt(document.getElementById('extraR').textContent)||10;
+    exercises['extra'] = {name:extraName, reps:er, series:Array.from({length:es},()=>({reps:er,kg:null,done:true}))};
+  }
+
+  // Warmup / cooldown
+  const warmup = {t:document.getElementById('warmT')?.value||'', v:document.getElementById('warmV')?.value||'', i:document.getElementById('warmI')?.value||''};
+  const cooldown = {t:document.getElementById('coolT')?.value||''};
+
+  const sess = { ts: now, dayIdx: currentDayIdx, exercises, warmup, cooldown };
+
+  // Calculate summary
+  pendingSession = sess;
+  showCalSummary(sess, completed, skipped);
+}
+
+function showCalSummary(sess, completed, skipped) {
+  const routine = db.routine.get();
+  const day = routine.days[sess.dayIdx];
+  document.getElementById('calDayName').textContent = day.name.toUpperCase();
+
+  const sessions = db.sessions.get().filter(s=>s.dayIdx===sess.dayIdx);
+  const prev = sessions[sessions.length-1];
+  const result = calcCalories(sess);
+  const p = db.profile.get();
+
+  // Volume diff
+  const curVol = Object.values(sess.exercises).reduce((a,ex)=>a+(ex.series?.filter(s=>s.done&&s.kg>0).reduce((b,s)=>b+(s.reps||0)*(s.kg||0),0)||0),0);
+  const prevVol = prev ? Object.values(prev.exercises||{}).reduce((a,ex)=>a+(ex.series?.filter(s=>s.done&&s.kg>0).reduce((b,s)=>b+(s.reps||0)*(s.kg||0),0)||0),0) : null;
+  const volDiff = prevVol > 0 ? Math.round((curVol-prevVol)/prevVol*100) : null;
+
+  // PRs
+  const newPRs = [];
+  const allSessions = db.sessions.get();
+  Object.values(sess.exercises).forEach(ex => {
+    if (!ex.kg) return;
+    const maxNow = Math.max(0,...(ex.series?.filter(s=>s.done&&s.kg>0).map(s=>s.kg)||[]));
+    if (!maxNow) return;
+    const prevMax = allSessions.flatMap(s=>Object.values(s.exercises||{}).filter(e=>e.name===ex.name))
+      .flatMap(e=>e.series||[]).filter(s=>s.done&&s.kg>0).reduce((a,s)=>Math.max(a,s.kg),0);
+    if (maxNow > prevMax) newPRs.push({name:ex.name, kg:maxNow});
+  });
+
+  let html = '';
+
+  // Completion
+  html += `<div style="display:flex;gap:10px;margin:14px 0 10px;">
+    <div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--accent);">${completed}</div>
+      <div style="font-size:11px;color:var(--muted);">completados</div>
+    </div>
+    ${skipped?`<div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--muted);">${skipped}</div>
+      <div style="font-size:11px;color:var(--muted);">salteados</div>
+    </div>`:''}
+    ${volDiff!==null?`<div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:${volDiff>=0?'var(--accent)':'#f08080'};">${volDiff>=0?'+':''}${volDiff}%</div>
+      <div style="font-size:11px;color:var(--muted);">volumen</div>
+    </div>`:''}
+  </div>`;
+
+  if (newPRs.length) {
+    html += `<div style="background:rgba(212,245,60,.07);border:1px solid var(--accent-border);border-radius:var(--radius);padding:12px;margin-bottom:10px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:6px;">🏆 NUEVOS RECORDS</div>
+      ${newPRs.map(pr=>`<div style="font-size:13px;font-weight:500;padding:3px 0;">${pr.name} → <strong>${pr.kg}kg</strong></div>`).join('')}
+    </div>`;
+  }
+
+  if (result?.total) {
+    const bmr = p.peso&&p.altura&&p.edad ? (p.sexo==='F'?10*p.peso+6.25*p.altura-5*p.edad-161:10*p.peso+6.25*p.altura-5*p.edad+5) : null;
+    const pct = bmr ? Math.min(100,Math.round(result.total/bmr*100)) : null;
+    html += `<div style="text-align:center;padding:10px 0 6px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:58px;color:var(--accent);line-height:1;">${result.total.toLocaleString('es-AR')}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px;">kcal estimadas</div>
+    </div>
+    ${bmr&&pct!==null?`<div class="bar-wrap"><div class="bar-lbl">${pct}% del BMR</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div></div>`:''}
+    <div class="cal-bdown" style="margin-bottom:10px;">
+      ${result.breakdown.slice(0,5).map(b=>`<div class="cal-brow"><span style="color:var(--muted);flex:1;">${b.label}</span><span style="font-weight:600;">${b.cal} kcal</span></div>`).join('')}
+    </div>`;
+  }
+
+  html += `<div style="font-size:11px;color:var(--muted);text-align:center;padding:0 0 8px;line-height:1.5;">Estimación basada en MET · No reemplaza un monitor cardíaco</div>`;
+
+  document.getElementById('calContent').innerHTML = html;
+  document.getElementById('calOverlay').classList.add('open');
+}
+
+function confirmSave() {
+  if (!pendingSession) return;
+  document.getElementById('calOverlay').classList.remove('open');
+  const cal = calcCalories(pendingSession);
+  if (cal) pendingSession.calories = cal.total;
+  const sessions = db.sessions.get();
+  sessions.push(pendingSession);
+  db.sessions.set(sessions);
+  pendingSession = null;
+  toast('✓ Sesión guardada 💪');
+  navTo('home');
+}
+
+function calcCalories(sess) {
+  const p = db.profile.get();
+  const peso = p.peso || 75;
+  const breakdown = [];
+  let total = 0;
+
+  // Warmup
+  const wt = parseFloat(sess.warmup?.t)||0;
+  const wv = parseFloat(sess.warmup?.v)||6;
+  const wi = parseFloat(sess.warmup?.i)||1;
+  if(wt>0){ const met=wv<6?3.5:wv<9?6:9; const kcal=Math.round(met*peso*(wt/60)); total+=kcal; breakdown.push({label:`Calentamiento (${wt}min)`,cal:kcal}); }
+
+  // Exercises
+  Object.values(sess.exercises).forEach(ex=>{
+    if(!ex.series) return;
+    const done = ex.series.filter(s=>s.done);
+    if(!done.length) return;
+    let kcal = 0;
+    if(ex.kg){ const vol=done.reduce((a,s)=>a+(s.reps||0)*(s.kg||0),0); kcal=Math.round(vol*0.035); }
+    else { const reps=done.reduce((a,s)=>a+(s.reps||0),0); kcal=Math.round(reps*0.5); }
+    if(kcal>0){ total+=kcal; breakdown.push({label:ex.name,cal:kcal}); }
+  });
+
+  // Cooldown
+  const ct=parseFloat(sess.cooldown?.t)||0;
+  if(ct>0){ const kcal=Math.round(2.5*peso*(ct/60)); total+=kcal; breakdown.push({label:`Vuelta a la calma (${ct}min)`,cal:kcal}); }
+
+  return {total, breakdown};
+}
+
+// ═══════════════════════════════════════════════
+// EXERCISE INFO
+// ═══════════════════════════════════════════════
+function openInfo(exIdx, exName) {
+  if (!exName) return;
+  document.getElementById('infoNum').textContent = exIdx==='extra' ? 'EJERCICIO EXTRA' : `EJERCICIO ${parseInt(exIdx)+1}`;
+  document.getElementById('infoName').textContent = exName;
+  document.getElementById('infoOverlay').classList.add('open');
+  if (infoCache[exName]) { renderInfo(infoCache[exName]); return; }
+  const info = EX_INFO[exName];
+  if (info) {
+    const normalized = {musculos_primarios:info.p, musculos_secundarios:info.s, descripcion:info.desc, tips:info.tips, error_comun:info.err};
+    infoCache[exName] = normalized;
+    renderInfo(normalized);
+  } else {
+    document.getElementById('infoBody').innerHTML = `<div style="padding:20px;color:var(--muted);text-align:center;font-size:13px;line-height:1.7;">No hay información cargada para este ejercicio.</div>`;
+  }
+}
+
+function renderInfo(info) {
+  const prim=(info.musculos_primarios||[]).map(m=>`<span class="muscle-chip p">${m}</span>`).join('');
+  const sec=(info.musculos_secundarios||[]).map(m=>`<span class="muscle-chip s">${m}</span>`).join('');
+  const tips=(info.tips||[]).map(t=>`<div class="tip-item">· ${t}</div>`).join('');
+  document.getElementById('infoBody').innerHTML=`
+    <div style="margin-bottom:14px;">${prim}${sec}</div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">Ejecución</div>
+    <div class="info-desc">${info.descripcion}</div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">Tips clave</div>
+    <div class="tip-list">${tips}</div>
+    ${info.error_comun?`<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#f08080;margin-bottom:8px;">⚠ Error frecuente</div><div class="error-box">${info.error_comun}</div>`:''}`;
+}
+
+// ═══════════════════════════════════════════════
+// SPORTS
+// ═══════════════════════════════════════════════
+let editingSportId = null;
+let spEsfuerzo = 0;
+let spFisico = [];
+
+function renderSports() {
+  const sports = db.sports.get();
+  const sportLogs = db.sportLogs.get();
+  const container = document.getElementById('sportList');
+  if (!sports.length) {
+    container.innerHTML = `<div class="no-data">No tenés deportes cargados.<br>Tocá "+ Agregar" para empezar.</div>`;
+    return;
+  }
+  container.innerHTML = sports.map(sport=>{
+    const logs = sportLogs.filter(l=>l.sportId===sport.id);
+    const ganados = logs.filter(l=>l.resultado==='ganamos').length;
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;">
+      <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;">
+        <div style="font-size:32px;">${sport.emoji||'🏃'}</div>
+        <div style="flex:1;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.5px;">${sport.name}</div>
+          <div style="font-size:11px;color:var(--muted);">${sport.rol||''} · ${logs.length} actividad${logs.length!==1?'es':''} ${logs.length>0?`· ${ganados} ganado${ganados!==1?'s':''}`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-g" onclick="openSportEdit('${sport.id}')" style="padding:6px 10px;">✏️</button>
+          <button class="btn-g danger" onclick="deleteSport('${sport.id}')" style="padding:6px 10px;">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openSportEdit(id) {
+  editingSportId = id;
+  const sports = db.sports.get();
+  const sport = id ? sports.find(s=>s.id===id) : null;
+  document.getElementById('spEditLabel').textContent = id ? 'EDITAR DEPORTE' : 'NUEVO DEPORTE';
+  document.getElementById('spEditTitle').textContent = id ? (sport?.name||'—') : 'Agregar deporte';
+  document.getElementById('speNombre').value = sport?.name || '';
+  document.getElementById('speEmoji').value = sport?.emoji || '';
+  document.getElementById('speRol').value = sport?.rol || '';
+  document.getElementById('speIntensidad').value = sport?.met || '6.5';
+  document.getElementById('sportEditOverlay').classList.add('open');
+}
+
+function saveSportEdit() {
+  const nombre = document.getElementById('speNombre').value.trim();
+  if (!nombre) { toast('Poné un nombre'); return; }
+  const sports = db.sports.get();
+  const data = {
+    id: editingSportId || `sp_${Date.now()}`,
+    name: nombre,
+    emoji: document.getElementById('speEmoji').value.trim() || '🏃',
+    rol: document.getElementById('speRol').value.trim(),
+    met: parseFloat(document.getElementById('speIntensidad').value) || 6.5
+  };
+  if (editingSportId) {
+    const idx = sports.findIndex(s=>s.id===editingSportId);
+    if (idx>=0) sports[idx]=data; else sports.push(data);
+  } else {
+    sports.push(data);
+  }
+  db.sports.set(sports);
+  document.getElementById('sportEditOverlay').classList.remove('open');
+  toast('✓ Deporte guardado');
+  renderSports();
+  renderHome();
+}
+
+function deleteSport(id) {
+  if (!confirm('¿Eliminar este deporte y todos sus registros?')) return;
+  const sports = db.sports.get().filter(s=>s.id!==id);
+  const logs = db.sportLogs.get().filter(l=>l.sportId!==id);
+  db.sports.set(sports);
+  db.sportLogs.set(logs);
+  toast('Deporte eliminado');
+  renderSports();
+  renderHome();
+}
+
+function startSport(sportId) {
+  currentSportId = sportId;
+  const sports = db.sports.get();
+  const sport = sports.find(s=>s.id===sportId);
+  if (!sport) return;
+  document.getElementById('sportRegLabel').textContent = sport.emoji + ' ' + sport.name;
+  document.getElementById('sportRegName').textContent = sport.rol || 'Actividad';
+  document.getElementById('spGolesLabel').textContent = 'Puntos/goles en contra';
+  document.getElementById('spGolesALabel').textContent = 'Puntos/goles a favor';
+  // Reset form
+  spEsfuerzo = 0;
+  spFisico = [];
+  document.getElementById('spDuracion').value='';
+  document.getElementById('spResultado').value='';
+  document.getElementById('spGoles').value='';
+  document.getElementById('spGolesA').value='';
+  document.getElementById('spNotas').value='';
+  document.querySelectorAll('.efs-btn').forEach(b=>b.style.background='');
+  document.querySelectorAll('#spFisicoRow > div').forEach(b=>{b.style.background='';b.style.borderColor='var(--border)';b.style.color='var(--muted)';});
+  navTo('sport');
+}
+
+function selectSpEsfuerzo(n) {
+  spEsfuerzo = n;
+  document.querySelectorAll('.efs-btn').forEach((b,i)=>{ b.style.background = i<n?'var(--accent-dim)':''; b.style.borderColor = i<n?'var(--accent-border)':'var(--border)'; });
+}
+
+function toggleSpFisico(el) {
+  const val = el.textContent;
+  const on = el.style.background === 'var(--accent-dim)';
+  if (on) { el.style.background=''; el.style.borderColor='var(--border)'; el.style.color='var(--muted)'; spFisico=spFisico.filter(v=>v!==val); }
+  else { el.style.background='var(--accent-dim)'; el.style.borderColor='var(--accent-border)'; el.style.color='var(--accent)'; spFisico.push(val); }
+}
+
+function saveSport() {
+  const sports = db.sports.get();
+  const sport = sports.find(s=>s.id===currentSportId);
+  const dur = parseFloat(document.getElementById('spDuracion').value)||60;
+  const p = db.profile.get();
+  const peso = p.peso||75;
+  const kcal = Math.round((sport?.met||6.5) * peso * (dur/60));
+
+  const log = {
+    id: `sl_${Date.now()}`,
+    sportId: currentSportId,
+    sportName: sport?.name || 'Deporte',
+    ts: new Date().toISOString(),
+    duracion: dur,
+    resultado: document.getElementById('spResultado').value,
+    goles: parseInt(document.getElementById('spGoles').value)||0,
+    golesA: parseInt(document.getElementById('spGolesA').value)||0,
+    esfuerzo: spEsfuerzo,
+    fisico: [...spFisico],
+    notas: document.getElementById('spNotas').value.trim(),
+    calories: kcal,
+  };
+  const logs = db.sportLogs.get();
+  logs.push(log);
+  db.sportLogs.set(logs);
+  toast(`✓ Actividad guardada · ${kcal} kcal`);
+  navTo('home');
+}
+
+// ═══════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════
+let statsCharts = {};
+
+function renderStats() {
+  const sessions = db.sessions.get();
+  const sportLogs = db.sportLogs.get();
+  const routine = db.routine.get();
+  const days = routine?.days || [];
+  const container = document.getElementById('statsContent');
+  if (!sessions.length && !sportLogs.length) {
+    container.innerHTML = `<div class="no-data">Completá tu primera sesión para ver estadísticas.</div>`;
+    return;
+  }
+
+  // Destroy existing charts
+  Object.values(statsCharts).forEach(c=>{try{c.destroy()}catch{}});
+  statsCharts = {};
+
+  let html = '';
+
+  // Heatmap 13 weeks
+  html += `<div class="sec-label">Actividad (13 semanas)</div>
+  <div class="stats-card">
+    <div id="calLegend" style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap;font-size:11px;color:var(--muted);"></div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>`;
+
+  // Volume chart
+  html += `<div class="sec-label">Volumen total por sesión</div>
+  <div class="stats-card"><canvas id="volChart" height="140"></canvas></div>`;
+
+  // Progress by exercise
+  if (days.length && sessions.length > 1) {
+    html += `<div class="sec-label">Evolución de peso</div>
+    <div class="stats-card">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        ${days.map((d,di)=>`<div class="pill${di===0?' active':''}" id="evDayPill${di}" onclick="setEvDay(${di})">${d.name}</div>`).join('')}
+      </div>
+      <div style="margin-bottom:8px;" id="evExScroll" class="ex-scroll"></div>
+      <canvas id="evChart" height="140"></canvas>
+    </div>`;
+  }
+
+  // PRs
+  const prs = getPRs(sessions);
+  if (prs.length) {
+    html += `<div class="sec-label">Records personales (PR)</div>
+    <div class="stats-card">
+      ${prs.slice(0,8).map(pr=>`<div class="pr-row">
+        <div style="flex:1;"><div class="pr-name">${pr.name}</div><div class="pr-date">${new Date(pr.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short',year:'numeric'})}</div></div>
+        <div class="pr-val">${pr.kg}kg</div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  container.innerHTML = html;
+
+  // Render heatmap
+  renderCalGrid(sessions, sportLogs, days);
+
+  // Volume chart
+  const volData = sessions.slice(-20).map(s=>{
+    const vol = Object.values(s.exercises||{}).reduce((a,ex)=>a+(ex.series?.filter(ss=>ss.done&&(ss.kg||0)>0).reduce((b,ss)=>b+(ss.reps||0)*(ss.kg||0),0)||0),0);
+    return {ts:s.ts, vol, di:s.dayIdx};
+  });
+  const volCtx = document.getElementById('volChart');
+  if (volCtx && volData.length) {
+    statsCharts.vol = new Chart(volCtx, {type:'bar', data:{
+      labels: volData.map(d=>new Date(d.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})),
+      datasets:[{data:volData.map(d=>d.vol), backgroundColor:volData.map(d=>DAY_COLORS[d.di%7]+'99'), borderColor:volData.map(d=>DAY_COLORS[d.di%7]), borderWidth:1.5, borderRadius:4}]
+    }, options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
+  }
+
+  // Evolution chart
+  if (days.length && sessions.length > 1) {
+    setEvDay(0);
+  }
+}
+
+function renderCalGrid(sessions, sportLogs, days) {
+  const grid = document.getElementById('calGrid');
+  const legend = document.getElementById('calLegend');
+  if (!grid) return;
+  const now = new Date();
+  const cells = [];
+  for (let w=12; w>=0; w--) {
+    for (let d=0; d<7; d++) {
+      const dt = new Date(now);
+      dt.setDate(dt.getDate() - w*7 - (now.getDay()||7) + d + 1);
+      dt.setHours(0,0,0,0);
+      if (dt > now) { cells.push('<div></div>'); continue; }
+      const key = dt.toISOString().slice(0,10);
+      const gymSess = sessions.filter(s=>s.ts.slice(0,10)===key);
+      const sportSess = sportLogs.filter(s=>s.ts.slice(0,10)===key);
+      let cls = '';
+      if (gymSess.length) { const di = gymSess[0].dayIdx; cls = `c${di%7}`; }
+      else if (sportSess.length) cls = 'sport';
+      const title = dt.toLocaleDateString('es-AR',{day:'numeric',month:'short'});
+      cells.push(`<div class="cal-cell${cls?' '+cls:''}" title="${title}"></div>`);
+    }
+  }
+  grid.innerHTML = cells.join('');
+  // Legend
+  const shown = new Set();
+  sessions.forEach(s=>{
+    const key=`c${s.dayIdx%7}`;
+    if(!shown.has(key)){ shown.add(key);
+      const name = days[s.dayIdx]?.name||`Día ${s.dayIdx+1}`;
+      legend.innerHTML += `<div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:2px;background:${DAY_COLORS[s.dayIdx%7]}"></div><span>${name}</span></div>`;
+    }
+  });
+  if (sportLogs.length) legend.innerHTML += `<div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:2px;background:var(--orange)"></div><span>Deportes</span></div>`;
+}
+
+let evDayIdx = 0;
+let evExIdx = 0;
+
+function setEvDay(di) {
+  evDayIdx = di;
+  evExIdx = 0;
+  document.querySelectorAll('[id^="evDayPill"]').forEach((p,i)=>p.classList.toggle('active',i===di));
+  const routine = db.routine.get();
+  const day = routine?.days?.[di];
+  const kgExs = (day?.exercises||[]).map((ex,ei)=>({ex,ei})).filter(({ex})=>ex.kg);
+  const scroll = document.getElementById('evExScroll');
+  if (scroll) {
+    scroll.innerHTML = kgExs.map(({ex,ei},i)=>`<div class="pill${i===0?' active':''}" id="evExPill${ei}" onclick="setEvEx(${ei})">${ex.name}</div>`).join('');
+  }
+  if (kgExs.length) setEvEx(kgExs[0].ei);
+}
+
+function setEvEx(ei) {
+  evExIdx = ei;
+  document.querySelectorAll('[id^="evExPill"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`evExPill${ei}`)?.classList.add('active');
+  const sessions = db.sessions.get().filter(s=>s.dayIdx===evDayIdx);
+  const pts = sessions.map(s=>{
+    const ex = s.exercises?.[ei]; if(!ex) return null;
+    const done = ex.series?.filter(s=>s.done&&s.kg>0)||[];
+    if(!done.length) return null;
+    return {ts:s.ts, kg:Math.max(...done.map(s=>s.kg))};
+  }).filter(Boolean);
+  const ctx = document.getElementById('evChart');
+  if (!ctx || !pts.length) return;
+  if (statsCharts.ev) try{statsCharts.ev.destroy()}catch{}
+  statsCharts.ev = new Chart(ctx, {type:'line', data:{
+    labels: pts.map(p=>new Date(p.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})),
+    datasets:[{data:pts.map(p=>p.kg), borderColor:'var(--accent)', backgroundColor:'rgba(212,245,60,.08)', pointBackgroundColor:'var(--accent)', tension:.35, fill:true}]
+  }, options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
+}
+
+function getPRs(sessions) {
+  const best = {};
+  sessions.forEach(s=>{
+    Object.values(s.exercises||{}).forEach(ex=>{
+      if(!ex.kg) return;
+      const maxKg = Math.max(0,...(ex.series||[]).filter(s=>s.done&&s.kg>0).map(s=>s.kg));
+      if(!maxKg) return;
+      if(!best[ex.name] || maxKg>best[ex.name].kg) best[ex.name]={kg:maxKg,ts:s.ts};
+    });
+  });
+  return Object.entries(best).map(([name,v])=>({name,...v})).sort((a,b)=>b.kg-a.kg);
+}
+
+// ═══════════════════════════════════════════════
+// COACH
+// ═══════════════════════════════════════════════
+let coachCache = {};
+
+function renderCoach() {
+  const sessions = db.sessions.get();
+  const routine = db.routine.get();
+  const days = routine?.days || [];
+  const container = document.getElementById('coachContent');
+
+  if (!sessions.length) {
+    container.innerHTML = `<div class="no-data">Completá al menos una sesión para ver el análisis.</div>`;
+    return;
+  }
+
+  let html = '';
+  days.forEach((day, di) => {
+    const daySess = sessions.filter(s=>s.dayIdx===di);
+    if (!daySess.length) return;
+
+    html += `<div class="sec-label">${day.name}</div>`;
+
+    // Coach card
+    const cacheKey = `${di}_${daySess.length}`;
+    const cacheHtml = coachCache[cacheKey];
+    html += `<div class="coach-card" id="coachCard${di}">${cacheHtml || '<div class="dots"><span></span><span></span><span></span></div>'}</div>`;
+
+    // Exercise breakdown
+    const kgExs = day.exercises.map((ex,ei)=>({ex,ei})).filter(({ex})=>ex.kg);
+    kgExs.forEach(({ex,ei})=>{
+      const exSessions = daySess.map(s=>s.exercises?.[ei]).filter(Boolean);
+      if (exSessions.length < 2) return;
+      const a = analyseEx(di, ei);
+      if (!a || !a.pts.length) return;
+      const badge = getExBadge(exSessions);
+      const lastPt = a.pts[a.pts.length-1];
+      const sparkMax = Math.max(...a.pts.map(p=>p.maxKg),1);
+
+      html += `<div class="prog-card">
+        <div class="prog-header" onclick="toggleProgCard('pc_${di}_${ei}')">
+          <div style="flex:1;">
+            <div class="prog-ex-name">${ex.name}</div>
+            ${badge?`<div style="margin-top:4px;">${renderBadge(badge)}</div>`:''}
+          </div>
+          <div class="sparkline">${a.pts.slice(-6).map((p,i,arr)=>`<div class="spark-bar ${i===arr.length-1?'cur':'old'}" style="height:${Math.max(4,Math.round(p.maxKg/sparkMax*36))}px"></div>`).join('')}</div>
+        </div>
+        <div class="prog-detail" id="pc_${di}_${ei}">
+          <div class="mini-grid">
+            <div class="mini-box"><div class="mini-val" style="color:var(--accent);">${lastPt.maxKg}kg</div><div class="mini-lbl">Último peso</div></div>
+            <div class="mini-box"><div class="mini-val">${lastPt.completedS}/${exSessions[exSessions.length-1]?.series?.length||0}</div><div class="mini-lbl">Series</div></div>
+            <div class="mini-box"><div class="mini-val">${Math.round(lastPt.avgReps)}</div><div class="mini-lbl">Reps prom</div></div>
+          </div>
+          ${a.pts.length>1?`<div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">Progreso: 
+            ${a.pts[0].maxKg}kg → ${lastPt.maxKg}kg 
+            (${lastPt.maxKg>a.pts[0].maxKg?'+':''}${Math.round((lastPt.maxKg-a.pts[0].maxKg)*10)/10}kg en ${a.pts.length} sesiones)</div>`:''}
+        </div>
+      </div>`;
+    });
+  });
+
+  container.innerHTML = html || `<div class="no-data">No hay datos suficientes.</div>`;
+
+  // Fill coach cards
+  days.forEach((day, di) => {
+    const daySess = sessions.filter(s=>s.dayIdx===di);
+    if (!daySess.length) return;
+    const cacheKey = `${di}_${daySess.length}`;
+    if (!coachCache[cacheKey]) {
+      fetchCoachAI(di, daySess, document.getElementById(`coachCard${di}`), cacheKey);
+    }
+  });
+}
+
+function toggleProgCard(id) {
+  document.getElementById(id)?.classList.toggle('open');
+}
+
+function analyseEx(dayIdx, exIdx) {
+  const sessions = db.sessions.get().filter(s=>s.dayIdx===dayIdx);
+  const pts = sessions.map(s=>{
+    const ex = s.exercises?.[exIdx]; if(!ex?.series) return null;
+    const done = ex.series.filter(s=>s.done&&s.kg>0);
+    if(!done.length) return null;
+    const maxKg = Math.max(...done.map(s=>s.kg));
+    const avgReps = done.reduce((a,s)=>a+s.reps,0)/done.length;
+    const completedS = done.length;
+    return {ts:s.ts, maxKg, avgReps, completedS};
+  }).filter(Boolean);
+  if (!pts.length) return null;
+  const last = pts[pts.length-1];
+  const prev = pts.length>1?pts[pts.length-2]:null;
+  const routine = db.routine.get();
+  const ex = routine?.days?.[dayIdx]?.exercises?.[exIdx];
+  const targetReps = ex?.reps || 10;
+  const targetS = ex?.series || 4;
+  let signal='info', suggestion=null;
+  if(prev&&last.maxKg>prev.maxKg){signal='hold';suggestion={type:'up_done',prev:prev.maxKg,cur:last.maxKg};}
+  else if(last.completedS>=targetS&&last.avgReps>=targetReps*0.9){signal='up';suggestion={type:'ready_up',suggestedKg:Math.round(last.maxKg*1.05*2)/2};}
+  else if(last.completedS<targetS||last.avgReps<targetReps*0.7){signal='warn';}
+  else{signal='hold';}
+  return {pts, signal, suggestion};
+}
+
+function fetchCoachAI(dayIdx, sessions, card, cacheKey) {
+  const day = (db.routine.get()?.days||[])[dayIdx];
+  if (!card) return;
+  const kgExs = (day?.exercises||[]).map((ex,ei)=>({ex,ei})).filter(({ex})=>ex.kg);
+  const insights = [];
+  let bestProgress = null, bestDelta = 0;
+  kgExs.forEach(({ex,ei})=>{
+    const a = analyseEx(dayIdx, ei); if(!a||a.pts.length<2) return;
+    const last=a.pts[a.pts.length-1], prev=a.pts[a.pts.length-2];
+    const delta=last.maxKg-prev.maxKg;
+    if(delta>bestDelta){bestDelta=delta;bestProgress={name:ex.name,delta,kg:last.maxKg};}
+    if(a.signal==='up') insights.push(`<strong style="color:var(--accent);">${ex.name}</strong>: listo para subir peso${a.suggestion?.suggestedKg?` (probá ${a.suggestion.suggestedKg}kg)`:''}`);
+    else if(a.signal==='warn') insights.push(`<strong style="color:#f08080;">${ex.name}</strong>: reps bajas, enfocate en completar las series`);
+    else if(a.signal==='hold'&&a.suggestion?.type==='up_done') insights.push(`<strong style="color:var(--green);">${ex.name}</strong>: subiste ${a.suggestion.prev}→${a.suggestion.cur}kg 🎉`);
+  });
+  const totalSess=sessions.length;
+  const lastDate=new Date(sessions[sessions.length-1].ts).toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+  let html=`<div class="coach-label">📊 Análisis del día</div>`;
+  html+=`<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">${totalSess} sesión${totalSess!==1?'es':''} · Último entreno: ${lastDate}</div>`;
+  if(bestProgress){html+=`<div style="background:rgba(212,245,60,.07);border:1px solid rgba(212,245,60,.2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;font-size:13px;">🏆 Mejor progreso: <strong style="color:var(--accent);">${bestProgress.name}</strong> +${bestProgress.delta}kg</div>`;}
+  if(insights.length){html+=`<div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:6px;">Ejercicios destacados</div><div style="display:flex;flex-direction:column;gap:6px;">`;insights.forEach(i=>{html+=`<div style="font-size:13px;background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px;border:1px solid var(--border);">· ${i}</div>`;});html+=`</div>`;}
+  else{html+=`<div style="font-size:13px;color:var(--muted);line-height:1.6;">Seguí registrando sesiones para ver recomendaciones específicas.</div>`;}
+  coachCache[cacheKey]=html;
+  card.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════
+// SUPPLEMENTS
+// ═══════════════════════════════════════════════
+let editingSuppId = null;
+
+function toggleSupp(id) {
+  const today = db.suppToday.get();
+  if (today[id]?.done) delete today[id];
+  else today[id] = {done:true, hora:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})};
+  db.suppToday.set(today);
+  renderSuppWidget();
+  if (document.getElementById('s-supplements').classList.contains('active')) renderSupplements();
+}
+
+function renderSupplements() {
+  const supps = db.supps.get();
+  const today = db.suppToday.get();
+  const container = document.getElementById('suppList');
+  if (!supps.length) {
+    container.innerHTML = `<div class="no-data">No tenés suplementos cargados.<br>Tocá "+ Agregar" para empezar.</div>`;
+    return;
+  }
+  const groups = {mañana:'🌅 Mañana', pre:'⚡ Pre-entreno', post:'💪 Post-entreno', noche:'🌙 Noche', cualquier:'🕐 Cualquier momento'};
+  const done = supps.filter(s=>today[s.id]?.done).length;
+  const pct = Math.round(done/supps.length*100);
+  let html = `<div style="margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;"><span style="color:var(--muted);">Progreso de hoy</span><span style="color:var(--accent);">${done}/${supps.length}</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+  </div>`;
+  Object.entries(groups).forEach(([key, label])=>{
+    const gs = supps.filter(s=>s.momento===key);
+    if (!gs.length) return;
+    html += `<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;margin-bottom:8px;padding-left:4px;">${label}</div>`;
+    gs.forEach(s=>{
+      const chk = today[s.id]?.done;
+      html += `<div class="supp-card${chk?' chk':''}">
+        <div class="supp-row">
+          <div class="supp-check${chk?' done':''}" onclick="toggleSupp('${s.id}')">${chk?'✓':''}</div>
+          <div class="supp-info" onclick="toggleSuppExpand('se_${s.id}')">
+            <div class="supp-name${chk?' done':''}">${s.name}</div>
+            <div class="supp-meta">${s.dosis||''}${chk?' · '+today[s.id].hora:''}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-g" onclick="openSuppEdit('${s.id}')" style="padding:5px 8px;">✏️</button>
+            <button class="btn-g danger" onclick="deleteSupp('${s.id}')" style="padding:5px 8px;">✕</button>
+          </div>
+        </div>
+        <div class="supp-expand" id="se_${s.id}"></div>
+      </div>`;
+    });
+    html += `<div style="height:8px;"></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function toggleSuppExpand(id) { document.getElementById(id)?.classList.toggle('open'); }
+
+function openSuppEdit(id) {
+  editingSuppId = id;
+  const supps = db.supps.get();
+  const s = id ? supps.find(x=>x.id===id) : null;
+  document.getElementById('seLabel').textContent = id ? 'EDITAR' : 'NUEVO';
+  document.getElementById('seTitle').textContent = id ? (s?.name||'—') : 'Agregar suplemento';
+  document.getElementById('seNombre').value = s?.name||'';
+  document.getElementById('seDosis').value = s?.dosis||'';
+  document.getElementById('seMomento').value = s?.momento||'post';
+  document.getElementById('suppEditOverlay').classList.add('open');
+}
+
+function saveSuppEdit() {
+  const nombre = document.getElementById('seNombre').value.trim();
+  if (!nombre) { toast('Poné un nombre'); return; }
+  const supps = db.supps.get();
+  const data = { id: editingSuppId||`su_${Date.now()}`, name:nombre, dosis:document.getElementById('seDosis').value.trim(), momento:document.getElementById('seMomento').value };
+  if (editingSuppId) { const i=supps.findIndex(s=>s.id===editingSuppId); if(i>=0) supps[i]=data; else supps.push(data); }
+  else supps.push(data);
+  db.supps.set(supps);
+  document.getElementById('suppEditOverlay').classList.remove('open');
+  toast('✓ Guardado');
+  renderSupplements();
+  renderSuppWidget();
+}
+
+function deleteSupp(id) {
+  if (!confirm('¿Eliminar este suplemento?')) return;
+  db.supps.set(db.supps.get().filter(s=>s.id!==id));
+  toast('Eliminado');
+  renderSupplements();
+  renderSuppWidget();
+}
+
+// ═══════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════
+function renderHistory() {
+  const sessions = db.sessions.get();
+  const sportLogs = db.sportLogs.get();
+  const routine = db.routine.get();
+  const all = [...sessions.map(s=>({...s,type:'gym'})), ...sportLogs.map(s=>({...s,type:'sport'}))]
+    .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+  const container = document.getElementById('histList');
+  if (!all.length) { container.innerHTML = `<div class="no-data">No hay sesiones registradas.</div>`; return; }
+  container.innerHTML = all.map((s,i)=>{
+    const dateStr = new Date(s.ts).toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'long',year:'numeric'});
+    const timeStr = new Date(s.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    if (s.type==='sport') {
+      return `<div style="margin:0 16px 8px;background:var(--surface);border:1px solid #2a2010;border-radius:var(--radius);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;" onclick="toggleHist('h${i}')">
+          <div><div style="font-size:11px;color:var(--orange);">${dateStr} · ${timeStr}</div>
+          <div style="font-size:15px;font-weight:500;margin-top:2px;">${s.sportName||'Deporte'}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${s.duracion||0}min · ${s.calories||0} kcal</div></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn-g danger" onclick="event.stopPropagation();deleteSession('sport','${s.id}')" style="padding:4px 8px;">✕</button>
+            <div style="color:var(--muted);">›</div>
+          </div>
+        </div>
+        <div id="h${i}" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);">
+          ${s.resultado?`Resultado: ${s.resultado}<br>`:''}${s.notas?`Notas: ${s.notas}`:''}
+        </div>
+      </div>`;
+    }
+    const dayName = routine?.days?.[s.dayIdx]?.name || `Día ${s.dayIdx+1}`;
+    const exCount = Object.values(s.exercises||{}).length;
+    const vol = Object.values(s.exercises||{}).reduce((a,ex)=>a+(ex.series?.filter(ss=>ss.done&&(ss.kg||0)>0).reduce((b,ss)=>b+(ss.reps||0)*(ss.kg||0),0)||0),0);
+    const color = DAY_COLORS[s.dayIdx%7];
+    return `<div style="margin:0 16px 8px;background:var(--surface);border:1px solid var(--border);border-left:3px solid ${color};border-radius:var(--radius);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;" onclick="toggleHist('h${i}')">
+        <div><div style="font-size:11px;color:var(--muted);">${dateStr} · ${timeStr}</div>
+        <div style="font-size:15px;font-weight:500;margin-top:2px;">${dayName}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">${exCount} ejercicio${exCount!==1?'s':''} · ${vol>0?vol+' vol':'—'} ${s.calories?'· '+s.calories+' kcal':''}</div></div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn-g danger" onclick="event.stopPropagation();deleteSession('gym','${s.ts}')" style="padding:4px 8px;">✕</button>
+          <div style="color:var(--muted);">›</div>
+        </div>
+      </div>
+      <div id="h${i}" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
+        ${Object.values(s.exercises||{}).map(ex=>{
+          const done=ex.series?.filter(s=>s.done)||[];
+          const kg=Math.max(0,...done.map(s=>s.kg||0));
+          return `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span style="color:var(--muted);flex:1;">${ex.name}</span>
+            <span>${done.length} series${kg>0?' · '+kg+'kg':''}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleHist(id) { const el=document.getElementById(id); if(el) el.style.display=el.style.display==='none'?'block':'none'; }
+
+function deleteSession(type, id) {
+  if (!confirm('¿Eliminar esta sesión?')) return;
+  if (type==='gym') { db.sessions.set(db.sessions.get().filter(s=>s.ts!==id)); }
+  else { db.sportLogs.set(db.sportLogs.get().filter(s=>s.id!==id)); }
+  toast('Sesión eliminada');
+  renderHistory();
+}
+
+// ═══════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════
+function loadSettings() {
+  const p = db.profile.get();
+  if(p.name) document.getElementById('cfgNombre').value = p.name;
+  if(p.peso) document.getElementById('cfgPeso').value = p.peso;
+  if(p.altura) document.getElementById('cfgAltura').value = p.altura;
+  if(p.edad) document.getElementById('cfgEdad').value = p.edad;
+  if(p.sexo) document.getElementById('cfgSexo').value = p.sexo;
+  updateBMR();
+}
+
+function updateBMR() {
+  const p=parseFloat(document.getElementById('cfgPeso')?.value)||0;
+  const a=parseFloat(document.getElementById('cfgAltura')?.value)||0;
+  const e=parseFloat(document.getElementById('cfgEdad')?.value)||0;
+  const s=document.getElementById('cfgSexo')?.value;
+  if(p&&a&&e){const bmr=s==='F'?10*p+6.25*a-5*e-161:10*p+6.25*a-5*e+5;document.getElementById('bmrVal').textContent=Math.round(bmr).toLocaleString('es-AR');}
+  else document.getElementById('bmrVal').textContent='—';
+}
+
+function saveProfile() {
+  db.profile.set({
+    name: document.getElementById('cfgNombre').value.trim() || db.profile.get().name || 'Atleta',
+    peso: parseFloat(document.getElementById('cfgPeso').value)||0,
+    altura: parseFloat(document.getElementById('cfgAltura').value)||0,
+    edad: parseFloat(document.getElementById('cfgEdad').value)||0,
+    sexo: document.getElementById('cfgSexo').value
+  });
+  toast('✓ Perfil guardado');
+  renderHome();
+}
+
+function exportBackup() {
+  const data = {
+    version: 2,
+    profile: db.profile.get(),
+    routine: db.routine.get(),
+    sessions: db.sessions.get(),
+    sports: db.sports.get(),
+    sportLogs: db.sportLogs.get(),
+    supps: db.supps.get(),
+    hidden: db.hidden.get(),
+    exported: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `gymtrack_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  toast('✓ Backup exportado');
+}
+
+function importBackup(input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!confirm(`¿Restaurar backup del ${data.exported?.slice(0,10)||'?'}? Se sobreescribirán todos los datos.`)) return;
+      if (data.profile) db.profile.set(data.profile);
+      if (data.routine) db.routine.set(data.routine);
+      if (data.sessions) db.sessions.set(data.sessions);
+      if (data.sports) db.sports.set(data.sports);
+      if (data.sportLogs) db.sportLogs.set(data.sportLogs);
+      if (data.supps) db.supps.set(data.supps);
+      if (data.hidden) db.hidden.set(data.hidden);
+      toast('✓ Backup restaurado');
+      navTo('home');
+    } catch { toast('⚠ Archivo inválido'); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+function init() {
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+  initOnboarding();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+</script>
+</body>
+</html>
