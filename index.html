@@ -175,6 +175,49 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .badge.warn{background:var(--red-dim);color:#f08080;border:1px solid rgba(245,60,60,.2)}
 .badge.info{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
 
+/* HISTORY — new cards */
+.hist-date-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;padding:16px 16px 6px;margin-top:2px;}
+.hist-date-label:first-child{padding-top:8px;}
+.hist-card{margin:0 16px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.hist-card.sport-hist{border-color:#2a2010;}
+.hist-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.hist-type-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.hist-title{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hist-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+.hist-chev{color:var(--muted);font-size:18px;flex-shrink:0;transition:transform .2s;margin-left:8px;}
+.hist-chev.open{transform:rotate(90deg);}
+.hist-body{display:none;padding:0 14px 12px;border-top:1px solid var(--border);}
+.hist-body.open{display:block;}
+.hist-ex-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);}
+.hist-ex-row:last-of-type{border-bottom:none;}
+.hist-ex-name{font-size:13px;flex:1;padding-right:8px;line-height:1.3;}
+.hist-ex-stats{display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.hist-ex-stats span{font-size:12px;color:var(--muted);}
+.hist-ex-kg{font-size:13px!important;font-weight:700;color:var(--accent)!important;}
+.hist-detail-row{display:flex;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid var(--border);}
+.hist-detail-lbl{color:var(--muted);flex-shrink:0;width:70px;}
+
+/* SERIE ROWS — new workout UI */
+.serie-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);transition:background .15s}
+.serie-row:last-child{border-bottom:none}
+.serie-row.done-row{opacity:.5}
+.serie-num{font-size:12px;font-weight:700;color:var(--muted);width:20px;text-align:center;flex-shrink:0}
+.serie-input{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;font-weight:600;padding:8px 0;text-align:center;-webkit-appearance:none;transition:border-color .15s;width:70px;flex-shrink:0}
+.serie-input:focus{outline:none;border-color:var(--accent)}
+.serie-input.filled{border-color:#3f5a00;color:var(--accent)}
+.serie-sep{font-size:12px;color:var(--muted);flex-shrink:0}
+.serie-check{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0;margin-left:auto;font-size:16px;-webkit-tap-highlight-color:transparent}
+.serie-check.done{background:var(--accent);border-color:var(--accent);color:#000}
+.last-kg-hint{font-size:11px;color:var(--muted);padding:4px 0 8px;text-align:right}
+
+/* REST TIMER */
+.rest-bar{position:fixed;bottom:calc(var(--nav-h) + 0px);left:0;right:0;background:#1a2a00;border-top:2px solid var(--accent);z-index:40;padding:10px 16px;display:flex;align-items:center;gap:12px;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
+.rest-bar.show{transform:translateY(0)}
+.rest-progress{flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.rest-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 1s linear}
+.rest-time{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);width:48px;text-align:right}
+.rest-skip{background:none;border:1px solid var(--accent-border);border-radius:100px;color:var(--accent);font-size:12px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+
 /* SPORT REGISTER */
 .sport-reg-wrap{padding:16px 16px 0;}
 .esfuerzo-row{display:flex;gap:8px;}
@@ -291,22 +334,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="onboard-sub">Tu entrenamiento, a tu manera.</div>
     <div class="onboard-progress" id="obProgress"></div>
 
-    <!-- Step 1: Name -->
+    <!-- Step 1: Name + days count -->
     <div class="onboard-step active" id="ob-step-0">
-      <div class="onboard-step-label">Paso 1 de 3</div>
+      <div class="onboard-step-label">Paso 1 de 2</div>
       <div class="onboard-step-title">¿Cómo te<br>llamás?</div>
-      <input class="input-f" type="text" id="obName" placeholder="Tu nombre..." autocomplete="off" style="margin-bottom:16px;font-size:18px;" oninput="this.classList.toggle('filled',!!this.value)">
-      <button class="btn-p" onclick="obNext(0)">SIGUIENTE →</button>
-    </div>
-
-    <!-- Step 2: Routine name + days -->
-    <div class="onboard-step" id="ob-step-1">
-      <div class="onboard-step-label">Paso 2 de 3</div>
-      <div class="onboard-step-title">Creá tu<br>rutina</div>
-      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nombre de tu rutina</label>
-      <input class="input-f" type="text" id="obRoutineName" placeholder="Ej: Push Pull Legs, Full Body..." style="margin-bottom:16px;" oninput="this.classList.toggle('filled',!!this.value)">
-      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">¿Cuántos días entrena por semana?</label>
-      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;" id="obDayPicker">
+      <input class="input-f" type="text" id="obName" placeholder="Tu nombre..." autocomplete="off"
+        style="margin-bottom:20px;font-size:18px;" oninput="this.classList.toggle('filled',!!this.value)">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px;">¿Cuántos días por semana entrenás?</label>
+      <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;" id="obDayPicker">
         <div class="pill" onclick="selectDayCount(1)">1</div>
         <div class="pill" onclick="selectDayCount(2)">2</div>
         <div class="pill active" onclick="selectDayCount(3)">3</div>
@@ -315,20 +350,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="pill" onclick="selectDayCount(6)">6</div>
         <div class="pill" onclick="selectDayCount(7)">7</div>
       </div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn-g" onclick="obBack(1)" style="padding:15px 20px;">‹</button>
-        <button class="btn-p" onclick="obNext(1)" style="flex:1;">SIGUIENTE →</button>
-      </div>
+      <button class="btn-p" onclick="obNext(0)">SIGUIENTE →</button>
     </div>
 
-    <!-- Step 3: Name each day -->
-    <div class="onboard-step" id="ob-step-2">
-      <div class="onboard-step-label">Paso 3 de 3</div>
+    <!-- Step 2: Name each day -->
+    <div class="onboard-step" id="ob-step-1">
+      <div class="onboard-step-label">Paso 2 de 2</div>
       <div class="onboard-step-title">Nombrá tus<br>días</div>
-      <div id="obDayNames" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.5;">Podés agregar ejercicios después desde la app.</div>
+      <div id="obDayNames" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6;">
+        Los ejercicios los agregás después, desde la app.
+      </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn-g" onclick="obBack(2)" style="padding:15px 20px;">‹</button>
+        <button class="btn-g" onclick="obBack(1)" style="padding:15px 20px;">‹</button>
         <button class="btn-p" onclick="obFinish()" style="flex:1;">¡EMPEZAR! 💪</button>
       </div>
     </div>
@@ -346,10 +380,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="week-dots" id="weekDots"></div>
   <div class="sec-label">Seleccioná tu día</div>
   <div id="dayCCards"></div>
-  <div class="sec-label">Deportes</div>
-  <div id="sportCards"></div>
-  <div id="addSportHomeBtn" style="margin:0 16px 10px;">
-    <button class="btn-g" style="width:100%;justify-content:center;" onclick="navTo('sports')">+ Agregar deporte</button>
+  <div id="sportSection">
+    <div class="sec-label">Deportes</div>
+    <div id="sportCards"></div>
+    <div id="addSportHomeBtn" style="margin:0 16px 10px;"></div>
   </div>
   <div class="sec-label">Suplementos de hoy</div>
   <div id="suppWidget"></div>
@@ -434,7 +468,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <!-- ═══ COACH ═══ -->
 <div id="s-coach" class="screen">
-  <div class="page-header"><div class="page-title">MI ENTRENADOR</div></div>
+  <div class="page-header"><div class="page-title">MI PROGRESO</div></div>
   <div id="coachContent" style="padding-bottom:20px;"></div>
 </div>
 
@@ -538,10 +572,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <!-- ═══ NAV ═══ -->
+<!-- REST TIMER BAR -->
+<div class="rest-bar" id="restBar">
+  <div style="font-size:12px;color:var(--accent);font-weight:600;white-space:nowrap;">Descanso</div>
+  <div class="rest-progress"><div class="rest-fill" id="restFill" style="width:100%"></div></div>
+  <div class="rest-time" id="restTime">60</div>
+  <button class="rest-skip" onclick="skipRest()">Saltar ›</button>
+</div>
+
 <nav class="nav-bar" id="mainNav" style="display:none;">
   <button class="nav-item active" id="ni-home" onclick="navTo('home')"><div class="nav-icon">🏠</div><div class="nav-label">Inicio</div></button>
   <button class="nav-item" id="ni-stats" onclick="navTo('stats')"><div class="nav-icon">📊</div><div class="nav-label">Stats</div></button>
-  <button class="nav-item" id="ni-coach" onclick="navTo('coach')"><div class="nav-icon">🧠</div><div class="nav-label">Coach</div></button>
+  <button class="nav-item" id="ni-coach" onclick="navTo('coach')"><div class="nav-icon">📈</div><div class="nav-label">Progreso</div></button>
   <button class="nav-item" id="ni-more" onclick="navTo('more')"><div class="nav-icon">☰</div><div class="nav-label">Más</div></button>
 </nav>
 
@@ -901,18 +943,16 @@ let obDayCount = 3;
 function initOnboarding() {
   const routine = db.routine.get();
   if (routine && routine.days && routine.days.length > 0) {
-    // Already set up
     document.getElementById('mainNav').style.display = 'flex';
     navTo('home');
     return;
   }
-  // Show onboarding
   navTo('onboard');
   renderObProgress(0);
 }
 
 function renderObProgress(step) {
-  const total = 3;
+  const total = 2;
   const el = document.getElementById('obProgress');
   el.innerHTML = Array.from({length:total},(_,i)=>`<div class="onboard-dot${i<=step?' done':''}"></div>`).join('');
 }
@@ -922,8 +962,6 @@ function selectDayCount(n) {
   document.querySelectorAll('#obDayPicker .pill').forEach((p,i)=>{
     p.classList.toggle('active', i+1===n);
   });
-  // Regenerate day name inputs
-  renderObDayNames();
 }
 
 function renderObDayNames() {
@@ -945,13 +983,8 @@ function obNext(step) {
   if (step===0) {
     const name = document.getElementById('obName').value.trim();
     if (!name) { toast('¡Ingresá tu nombre!'); return; }
-    renderObProgress(1);
     renderObDayNames();
-  }
-  if (step===1) {
-    const rName = document.getElementById('obRoutineName').value.trim();
-    if (!rName) { toast('Poné un nombre a tu rutina'); return; }
-    renderObProgress(2);
+    renderObProgress(1);
   }
   document.getElementById(`ob-step-${step}`).classList.remove('active');
   document.getElementById(`ob-step-${step+1}`).classList.add('active');
@@ -964,23 +997,18 @@ function obBack(step) {
 }
 
 function obFinish() {
-  const name = document.getElementById('obName').value.trim();
-  const rName = document.getElementById('obRoutineName').value.trim();
-
+  const name = document.getElementById('obName').value.trim() || 'Atleta';
   const days = [];
   for(let i=0; i<obDayCount; i++) {
     const val = document.getElementById(`obDay${i}`)?.value.trim() || `Día ${i+1}`;
     days.push({ id: Date.now()+i, name: val, exercises: [] });
   }
-
-  const routine = { name: rName, days };
+  const routine = { name: 'Mi rutina', days };
   db.routine.set(routine);
   db.profile.set({ name, peso:0, altura:0, edad:0, sexo:'M' });
-
   document.getElementById('mainNav').style.display = 'flex';
-  // Go to routine editor so user can add exercises right away
   navTo('routine-editor');
-  toast(`¡Bienvenido, ${name}! Ahora agregá los ejercicios a cada día 💪`);
+  toast(`¡Bienvenido, ${name}! Ahora agregá los ejercicios 💪`);
 }
 
 // ═══════════════════════════════════════════════
@@ -1334,24 +1362,32 @@ function renderHome() {
     </div>`;
   }).join('') || `<div class="no-data">No tenés días en tu rutina.<br><button class="btn-g accent" onclick="navTo('routine-editor')" style="margin-top:10px;">Crear rutina →</button></div>`;
 
-  // Sport cards
+  // Sport cards — hide entire section if no sports
   const sc = document.getElementById('sportCards');
-  sc.innerHTML = sports.map(sport=>{
-    const logs = sportLogs.filter(l=>l.sportId===sport.id);
-    const last = logs[logs.length-1];
-    const lastStr = last ? `Último: ${new Date(last.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})}` : 'Sin actividades aún';
-    return `<div class="sport-card" onclick="startSport('${sport.id}')">
-      <div class="day-card-inner">
-        <div>
-          <div class="day-tag">${sport.rol || 'Deporte'}</div>
-          <div class="day-name">${sport.emoji||'⚽'} ${sport.name}</div>
-          <div class="day-sub">${logs.length} actividad${logs.length!==1?'es':''}</div>
-          <div class="day-last" style="color:var(--orange);">${lastStr}</div>
+  const sportSection = document.getElementById('sportSection');
+  const addSportBtn = document.getElementById('addSportHomeBtn');
+  if (!sports.length) {
+    sportSection.style.display = 'none';
+  } else {
+    sportSection.style.display = 'block';
+    sc.innerHTML = sports.map(sport=>{
+      const logs = sportLogs.filter(l=>l.sportId===sport.id);
+      const last = logs[logs.length-1];
+      const lastStr = last ? `Último: ${new Date(last.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})}` : 'Sin actividades aún';
+      return `<div class="sport-card" onclick="startSport('${sport.id}')">
+        <div class="day-card-inner">
+          <div>
+            <div class="day-tag">${sport.rol || 'Deporte'}</div>
+            <div class="day-name">${sport.emoji||'⚽'} ${sport.name}</div>
+            <div class="day-sub">${logs.length} actividad${logs.length!==1?'es':''}</div>
+            <div class="day-last" style="color:var(--orange);">${lastStr}</div>
+          </div>
+          <div class="day-arrow">›</div>
         </div>
-        <div class="day-arrow">›</div>
-      </div>
-    </div>`;
-  }).join('');
+      </div>`;
+    }).join('');
+    addSportBtn.innerHTML = `<button class="btn-g" style="width:100%;justify-content:center;" onclick="navTo('sports')">+ Agregar deporte</button>`;
+  }
 
   renderSuppWidget();
 }
@@ -1436,7 +1472,8 @@ function renderExList(di) {
     const hid = hidden[`${di}_${ei}`];
     const exSessions = sessions.map(s=>s.exercises?.[ei]).filter(Boolean);
     const badge = getExBadge(exSessions);
-    const lastKgStr = badge?.lastKg ? `${badge.lastKg}kg` : '';
+    const lastKg = badge?.lastKg || null;
+    const isFirst = ei === 0 && !hid;
 
     html += `<div class="ex-card${hid?' skipped':''}" id="exCard${ei}">
       <div class="ex-header" onclick="toggleEx(${ei})">
@@ -1444,32 +1481,34 @@ function renderExList(di) {
           <div class="ex-num">EJERCICIO ${ei+1}${hid?' · OCULTO':''}</div>
           <div class="ex-name">${ex.name}</div>
           ${ex.nota?`<div class="ex-note">${ex.nota}</div>`:''}
-          ${badge?`<div style="margin-top:6px;">${renderBadge(badge)} ${lastKgStr?`<span style="font-size:11px;color:var(--muted);margin-left:4px;">últ. ${lastKgStr}</span>`:''}</div>`:''}
+          ${badge?`<div style="margin-top:6px;">${renderBadge(badge)} ${lastKg?`<span style="font-size:11px;color:var(--muted);margin-left:4px;">últ. ${lastKg}kg</span>`:''}</div>`:''}
         </div>
-        <div class="ex-chev" id="exChev${ei}">›</div>
+        <div class="ex-chev${isFirst?' open':''}" id="exChev${ei}">›</div>
       </div>
       <div class="ex-actions">
         <button class="btn-g" onclick="openInfo(${ei},'${ex.name.replace(/'/g,"\\'")}')">💡</button>
         <button class="btn-g" onclick="skipEx(${ei})" id="skipBtn${ei}">${hid?'Mostrando':'⏭ Saltear'}</button>
         <button class="btn-g${hid?'':' danger'}" onclick="hideEx(${ei})" id="hideBtn${ei}">${hid?'👁 Mostrar':'🚫 Ocultar'}</button>
       </div>
-      <div class="ex-body" id="exBody${ei}">
-        <div class="series-grid${!ex.kg?' nokg':''}">
-          ${ex.kg?'<div class="s-head"></div><div class="s-head">Reps</div><div class="s-head">Kg</div><div class="s-head">✓</div>':
-                  '<div class="s-head"></div><div class="s-head">Reps</div><div class="s-head">✓</div>'}
+      <div class="ex-body${isFirst?' open':''}" id="exBody${ei}">
+        ${lastKg?`<div class="last-kg-hint">Último peso registrado: ${lastKg}kg</div>`:''}
+        <div id="serieRows${ei}">
           ${Array.from({length:ex.series},(_,si)=>{
-            const prevKg = badge?.lastKg || '';
-            return `<div class="s-lbl">${si+1}</div>
-              <input class="input-f sm${si===0?' filled':''}" type="number" inputmode="decimal" id="r${ei}_${si}" value="${ex.reps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
-              ${ex.kg?`<input class="input-f sm${prevKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="${prevKg}" value="${prevKg}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
-              <input type="checkbox" id="c${ei}_${si}" style="width:20px;height:20px;accent-color:var(--accent);cursor:pointer;" checked>`;
+            const prevKg = lastKg || '';
+            return `<div class="serie-row" id="sr${ei}_${si}">
+              <div class="serie-num">${si+1}</div>
+              <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${ex.reps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
+              <div class="serie-sep">reps</div>
+              ${ex.kg?`<input class="serie-input${prevKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="${prevKg||'kg'}" value="${prevKg}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
+              <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
+            </div>`;
           }).join('')}
         </div>
       </div>
     </div>`;
   });
 
-  // Extra exercise
+  // Extra
   html += `<div class="extra-section">
     <div class="extra-title">+ EJERCICIO EXTRA</div>
     <div class="extra-row">
@@ -1486,7 +1525,6 @@ function renderExList(di) {
         <div class="stepper"><button class="step-btn" onclick="stepVal('extraR',-1)">−</button><div class="step-val" id="extraR">10</div><button class="step-btn" onclick="stepVal('extraR',1)">+</button></div>
       </div>
     </div>
-    <button class="btn-g" onclick="openInfo('extra',document.getElementById('extraName').value)">💡 Saber más</button>
   </div>`;
 
   // Cooldown
@@ -1506,7 +1544,6 @@ function renderExList(di) {
   html += `<div style="height:10px;"></div>`;
   container.innerHTML = html;
 }
-
 function toggleTempo(id) {
   const body = document.getElementById(`${id}Body`);
   const chev = document.getElementById(`${id}Chev`);
@@ -1520,6 +1557,85 @@ function toggleEx(ei) {
   const open = body.classList.toggle('open');
   chev.classList.toggle('open', open);
 }
+
+// Toggle individual serie as done/undone + launch rest timer
+function toggleSerie(ei, si, totalSeries) {
+  const btn = document.getElementById(`sc${ei}_${si}`);
+  const row = document.getElementById(`sr${ei}_${si}`);
+  const isDone = btn.classList.toggle('done');
+  btn.textContent = isDone ? '✓' : '○';
+  row.classList.toggle('done-row', isDone);
+
+  // Vibrate on completion
+  if (isDone && navigator.vibrate) navigator.vibrate(40);
+
+  // Count done series for this exercise
+  const routine = db.routine.get();
+  const day = routine.days[currentDayIdx];
+  const ex = day?.exercises?.[ei];
+  if (!ex) return;
+
+  const doneSeries = Array.from({length:ex.series}, (_,i) =>
+    document.getElementById(`sc${ei}_${i}`)?.classList.contains('done')
+  );
+  const doneCount = doneSeries.filter(Boolean).length;
+
+  if (isDone) {
+    // All series done → open next exercise
+    if (doneCount === ex.series) {
+      const nextEi = ei + 1;
+      const nextBody = document.getElementById(`exBody${nextEi}`);
+      if (nextBody && !nextBody.classList.contains('open')) {
+        setTimeout(() => {
+          document.getElementById(`exChev${nextEi}`)?.classList.add('open');
+          nextBody.classList.add('open');
+          nextBody.scrollIntoView({behavior:'smooth', block:'start'});
+        }, 300);
+      }
+    }
+    // Start rest timer after every completed serie
+    startRest(doneCount === ex.series ? 90 : 60);
+  } else {
+    stopRest();
+  }
+}
+
+// ─── REST TIMER ───────────────────────────────────────────────────────────────
+let restInterval = null;
+let restTotal = 60;
+let restRemaining = 60;
+
+function startRest(seconds) {
+  stopRest();
+  restTotal = seconds;
+  restRemaining = seconds;
+  const bar = document.getElementById('restBar');
+  const fill = document.getElementById('restFill');
+  const time = document.getElementById('restTime');
+  bar.classList.add('show');
+  fill.style.transition = 'none';
+  fill.style.width = '100%';
+
+  restInterval = setInterval(() => {
+    restRemaining--;
+    time.textContent = restRemaining;
+    const pct = (restRemaining / restTotal) * 100;
+    fill.style.transition = 'width 1s linear';
+    fill.style.width = pct + '%';
+    if (restRemaining <= 0) {
+      stopRest();
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      toast('¡A la siguiente serie! 💪');
+    }
+  }, 1000);
+}
+
+function stopRest() {
+  if (restInterval) { clearInterval(restInterval); restInterval = null; }
+  document.getElementById('restBar')?.classList.remove('show');
+}
+
+function skipRest() { stopRest(); }
 
 function skipEx(ei) {
   const card = document.getElementById(`exCard${ei}`);
@@ -1588,6 +1704,7 @@ function renderBadge(badge) {
 }
 
 function saveSession() {
+  stopRest();
   const routine = db.routine.get();
   const day = routine.days[currentDayIdx];
   const now = new Date().toISOString();
@@ -1600,7 +1717,7 @@ function saveSession() {
     const series = Array.from({length:ex.series},(_,si)=>{
       const reps = parseFloat(document.getElementById(`r${ei}_${si}`)?.value)||0;
       const kg = ex.kg ? parseFloat(document.getElementById(`k${ei}_${si}`)?.value)||0 : null;
-      const done = document.getElementById(`c${ei}_${si}`)?.checked||false;
+      const done = document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')||false;
       return {reps, kg, done};
     });
     exercises[ei] = {name:ex.name, reps:ex.reps, kg:ex.kg, series};
@@ -1615,35 +1732,16 @@ function saveSession() {
     exercises['extra'] = {name:extraName, reps:er, series:Array.from({length:es},()=>({reps:er,kg:null,done:true}))};
   }
 
-  // Warmup / cooldown
   const warmup = {t:document.getElementById('warmT')?.value||'', v:document.getElementById('warmV')?.value||'', i:document.getElementById('warmI')?.value||''};
   const cooldown = {t:document.getElementById('coolT')?.value||''};
 
   const sess = { ts: now, dayIdx: currentDayIdx, exercises, warmup, cooldown };
+  const cal = calcCalories(sess);
+  if (cal) sess.calories = cal.total;
 
-  // Calculate summary
-  pendingSession = sess;
-  showCalSummary(sess, completed, skipped);
-}
-
-function showCalSummary(sess, completed, skipped) {
-  const routine = db.routine.get();
-  const day = routine.days[sess.dayIdx];
-  document.getElementById('calDayName').textContent = day.name.toUpperCase();
-
-  const sessions = db.sessions.get().filter(s=>s.dayIdx===sess.dayIdx);
-  const prev = sessions[sessions.length-1];
-  const result = calcCalories(sess);
-  const p = db.profile.get();
-
-  // Volume diff
-  const curVol = Object.values(sess.exercises).reduce((a,ex)=>a+(ex.series?.filter(s=>s.done&&s.kg>0).reduce((b,s)=>b+(s.reps||0)*(s.kg||0),0)||0),0);
-  const prevVol = prev ? Object.values(prev.exercises||{}).reduce((a,ex)=>a+(ex.series?.filter(s=>s.done&&s.kg>0).reduce((b,s)=>b+(s.reps||0)*(s.kg||0),0)||0),0) : null;
-  const volDiff = prevVol > 0 ? Math.round((curVol-prevVol)/prevVol*100) : null;
-
-  // PRs
-  const newPRs = [];
+  // Check PRs before saving
   const allSessions = db.sessions.get();
+  const newPRs = [];
   Object.values(sess.exercises).forEach(ex => {
     if (!ex.kg) return;
     const maxNow = Math.max(0,...(ex.series?.filter(s=>s.done&&s.kg>0).map(s=>s.kg)||[]));
@@ -1653,60 +1751,82 @@ function showCalSummary(sess, completed, skipped) {
     if (maxNow > prevMax) newPRs.push({name:ex.name, kg:maxNow});
   });
 
-  let html = '';
+  // Volume vs last session
+  const prevSess = allSessions.filter(s=>s.dayIdx===currentDayIdx).slice(-1)[0];
+  const curVol = Object.values(sess.exercises).reduce((a,ex)=>a+(ex.series?.filter(s=>s.done&&(s.kg||0)>0).reduce((b,s)=>b+(s.reps||0)*(s.kg||0),0)||0),0);
+  const prevVol = prevSess ? Object.values(prevSess.exercises||{}).reduce((a,ex)=>a+(ex.series?.filter(s=>s.done&&(s.kg||0)>0).reduce((b,s)=>b+(s.reps||0)*(s.kg||0),0)||0),0) : null;
 
-  // Completion
-  html += `<div style="display:flex;gap:10px;margin:14px 0 10px;">
-    <div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--accent);">${completed}</div>
-      <div style="font-size:11px;color:var(--muted);">completados</div>
-    </div>
-    ${skipped?`<div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--muted);">${skipped}</div>
-      <div style="font-size:11px;color:var(--muted);">salteados</div>
-    </div>`:''}
-    ${volDiff!==null?`<div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:center;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:${volDiff>=0?'var(--accent)':'#f08080'};">${volDiff>=0?'+':''}${volDiff}%</div>
-      <div style="font-size:11px;color:var(--muted);">volumen</div>
-    </div>`:''}
+  // Save
+  allSessions.push(sess);
+  db.sessions.set(allSessions);
+  if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 120]);
+
+  // Show quick summary overlay
+  showQuickSummary(sess, completed, skipped, newPRs, curVol, prevVol, cal);
+}
+
+function showQuickSummary(sess, completed, skipped, newPRs, curVol, prevVol, cal) {
+  const routine = db.routine.get();
+  const day = routine.days[sess.dayIdx];
+  const volDiff = prevVol > 0 ? Math.round((curVol - prevVol) / prevVol * 100) : null;
+
+  document.getElementById('calDayName').textContent = day.name.toUpperCase();
+
+  let html = `<div style="display:flex;gap:10px;margin:14px 0 12px;">`;
+
+  // Completed
+  html += `<div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:14px 8px;text-align:center;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--accent);line-height:1;">${completed}</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px;">ejercicios</div>
   </div>`;
 
+  // Calories
+  if (cal?.total) {
+    html += `<div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:14px 8px;text-align:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--accent);line-height:1;">${cal.total}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">kcal</div>
+    </div>`;
+  }
+
+  // Volume diff
+  if (volDiff !== null) {
+    html += `<div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:14px 8px;text-align:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:${volDiff>=0?'var(--accent)':'#f08080'};line-height:1;">${volDiff>=0?'+':''}${volDiff}%</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">volumen</div>
+    </div>`;
+  }
+
+  html += `</div>`;
+
+  // PRs
   if (newPRs.length) {
-    html += `<div style="background:rgba(212,245,60,.07);border:1px solid var(--accent-border);border-radius:var(--radius);padding:12px;margin-bottom:10px;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:6px;">🏆 NUEVOS RECORDS</div>
-      ${newPRs.map(pr=>`<div style="font-size:13px;font-weight:500;padding:3px 0;">${pr.name} → <strong>${pr.kg}kg</strong></div>`).join('')}
+    html += `<div style="background:rgba(212,245,60,.07);border:1px solid var(--accent-border);border-radius:var(--radius);padding:12px;margin-bottom:12px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:8px;">🏆 NUEVO RECORD PERSONAL</div>
+      ${newPRs.map(pr=>`<div style="font-size:14px;font-weight:500;padding:2px 0;">${pr.name}<span style="color:var(--accent);margin-left:8px;">${pr.kg}kg</span></div>`).join('')}
     </div>`;
   }
 
-  if (result?.total) {
-    const bmr = p.peso&&p.altura&&p.edad ? (p.sexo==='F'?10*p.peso+6.25*p.altura-5*p.edad-161:10*p.peso+6.25*p.altura-5*p.edad+5) : null;
-    const pct = bmr ? Math.min(100,Math.round(result.total/bmr*100)) : null;
-    html += `<div style="text-align:center;padding:10px 0 6px;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:58px;color:var(--accent);line-height:1;">${result.total.toLocaleString('es-AR')}</div>
-      <div style="font-size:13px;color:var(--muted);margin-top:2px;">kcal estimadas</div>
-    </div>
-    ${bmr&&pct!==null?`<div class="bar-wrap"><div class="bar-lbl">${pct}% del BMR</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div></div>`:''}
-    <div class="cal-bdown" style="margin-bottom:10px;">
-      ${result.breakdown.slice(0,5).map(b=>`<div class="cal-brow"><span style="color:var(--muted);flex:1;">${b.label}</span><span style="font-weight:600;">${b.cal} kcal</span></div>`).join('')}
-    </div>`;
+  // Skipped
+  if (skipped) {
+    html += `<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Salteaste ${skipped} ejercicio${skipped!==1?'s':''}.</div>`;
   }
-
-  html += `<div style="font-size:11px;color:var(--muted);text-align:center;padding:0 0 8px;line-height:1.5;">Estimación basada en MET · No reemplaza un monitor cardíaco</div>`;
 
   document.getElementById('calContent').innerHTML = html;
+
+  // Update buttons: only "Volver al inicio"
+  document.getElementById('calConfirmBtn').textContent = 'IR AL INICIO';
+  document.getElementById('calConfirmBtn').onclick = () => {
+    document.getElementById('calOverlay').classList.remove('open');
+    navTo('home');
+  };
+  document.getElementById('calCancelBtn').style.display = 'none';
+
   document.getElementById('calOverlay').classList.add('open');
 }
 
+// Legacy - keep for any remaining references
 function confirmSave() {
-  if (!pendingSession) return;
   document.getElementById('calOverlay').classList.remove('open');
-  const cal = calcCalories(pendingSession);
-  if (cal) pendingSession.calories = cal.total;
-  const sessions = db.sessions.get();
-  sessions.push(pendingSession);
-  db.sessions.set(sessions);
-  pendingSession = null;
-  toast('✓ Sesión guardada 💪');
   navTo('home');
 }
 
@@ -1839,6 +1959,7 @@ function saveSportEdit() {
   }
   db.sports.set(sports);
   document.getElementById('sportEditOverlay').classList.remove('open');
+  if (navigator.vibrate) navigator.vibrate(40);
   toast('✓ Deporte guardado');
   renderSports();
   renderHome();
@@ -1914,6 +2035,7 @@ function saveSport() {
   const logs = db.sportLogs.get();
   logs.push(log);
   db.sportLogs.set(logs);
+  if (navigator.vibrate) navigator.vibrate([60,30,60]);
   toast(`✓ Actividad guardada · ${kcal} kcal`);
   navTo('home');
 }
@@ -1938,7 +2060,49 @@ function renderStats() {
   Object.values(statsCharts).forEach(c=>{try{c.destroy()}catch{}});
   statsCharts = {};
 
-  let html = '';
+  // ── Hero summary ──────────────────────────────────────────────────────────
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate()-((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const gymWeek = sessions.filter(s=>new Date(s.ts)>=weekStart).length;
+  const gymMonth = sessions.filter(s=>new Date(s.ts)>=monthStart).length;
+  const sportMonth = sportLogs.filter(s=>new Date(s.ts)>=monthStart).length;
+  const totalMonth = gymMonth + sportMonth;
+
+  // Volume this week vs last week
+  const lastWeekStart = new Date(weekStart); lastWeekStart.setDate(weekStart.getDate()-7);
+  const volThisWeek = sessions.filter(s=>new Date(s.ts)>=weekStart)
+    .reduce((a,s)=>a+Object.values(s.exercises||{}).reduce((b,ex)=>b+(ex.series?.filter(ss=>ss.done&&(ss.kg||0)>0).reduce((c,ss)=>c+(ss.reps||0)*(ss.kg||0),0)||0),0),0);
+  const volLastWeek = sessions.filter(s=>new Date(s.ts)>=lastWeekStart&&new Date(s.ts)<weekStart)
+    .reduce((a,s)=>a+Object.values(s.exercises||{}).reduce((b,ex)=>b+(ex.series?.filter(ss=>ss.done&&(ss.kg||0)>0).reduce((c,ss)=>c+(ss.reps||0)*(ss.kg||0),0)||0),0),0);
+  const volDiff = volLastWeek>0 ? Math.round((volThisWeek-volLastWeek)/volLastWeek*100) : null;
+
+  // Total kcal this month
+  const kcalMonth = [...sessions, ...sportLogs].filter(s=>new Date(s.ts)>=monthStart)
+    .reduce((a,s)=>a+(s.calories||0),0);
+
+  let html = `<div style="margin:0 16px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+    <div style="padding:14px 16px 10px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;">Esta semana</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border);">
+      <div style="padding:14px 12px;text-align:center;border-right:1px solid var(--border);">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--accent);line-height:1;">${gymWeek}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">sesiones</div>
+      </div>
+      <div style="padding:14px 12px;text-align:center;border-right:1px solid var(--border);">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:${volDiff===null?'var(--muted)':volDiff>=0?'var(--accent)':'#f08080'};line-height:1;">${volDiff===null?'—':(volDiff>=0?'+':'')+volDiff+'%'}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">vs sem. anterior</div>
+      </div>
+      <div style="padding:14px 12px;text-align:center;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--accent);line-height:1;">${totalMonth}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">actividades mes</div>
+      </div>
+    </div>
+    ${kcalMonth>0?`<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;color:var(--muted);">Calorías quemadas este mes</span>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--accent);">${kcalMonth.toLocaleString('es-AR')} kcal</span>
+    </div>`:''}
+  </div>`;
 
   // Heatmap 13 weeks
   html += `<div class="sec-label">Actividad (13 semanas)</div>
@@ -2096,11 +2260,34 @@ function renderCoach() {
   const container = document.getElementById('coachContent');
 
   if (!sessions.length) {
-    container.innerHTML = `<div class="no-data">Completá al menos una sesión para ver el análisis.</div>`;
+    container.innerHTML = `<div class="no-data">Completá al menos una sesión para ver tu progreso.</div>`;
     return;
   }
 
+  // ── Quick lookup: last weights ────────────────────────────────────────────
+  const prs = getPRs(sessions);
+  const lastSession = sessions[sessions.length-1];
+  const lastDay = days[lastSession?.dayIdx];
+  const lastExWeights = lastDay ? Object.values(lastSession.exercises||{})
+    .filter(ex=>ex.kg)
+    .map(ex=>{
+      const done = ex.series?.filter(s=>s.done&&s.kg>0)||[];
+      const maxKg = done.length ? Math.max(...done.map(s=>s.kg)) : null;
+      return maxKg ? {name:ex.name, kg:maxKg} : null;
+    }).filter(Boolean) : [];
+
   let html = '';
+
+  if (lastExWeights.length) {
+    html += `<div class="sec-label">Último entrenamiento · ${lastDay.name}</div>
+    <div style="margin:0 16px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      ${lastExWeights.map((ex,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:${i<lastExWeights.length-1?'1px solid var(--border)':'none'};">
+        <div style="font-size:13px;flex:1;padding-right:8px;line-height:1.3;">${ex.name}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);">${ex.kg}kg</div>
+      </div>`).join('')}
+    </div>`;
+  }
+
   days.forEach((day, di) => {
     const daySess = sessions.filter(s=>s.dayIdx===di);
     if (!daySess.length) return;
@@ -2221,9 +2408,11 @@ let editingSuppId = null;
 
 function toggleSupp(id) {
   const today = db.suppToday.get();
+  const checking = !today[id]?.done;
   if (today[id]?.done) delete today[id];
   else today[id] = {done:true, hora:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})};
   db.suppToday.set(today);
+  if (checking && navigator.vibrate) navigator.vibrate(30);
   renderSuppWidget();
   if (document.getElementById('s-supplements').classList.contains('active')) renderSupplements();
 }
@@ -2292,6 +2481,7 @@ function saveSuppEdit() {
   else supps.push(data);
   db.supps.set(supps);
   document.getElementById('suppEditOverlay').classList.remove('open');
+  if (navigator.vibrate) navigator.vibrate(40);
   toast('✓ Guardado');
   renderSupplements();
   renderSuppWidget();
@@ -2312,58 +2502,115 @@ function renderHistory() {
   const sessions = db.sessions.get();
   const sportLogs = db.sportLogs.get();
   const routine = db.routine.get();
+  const container = document.getElementById('histList');
+
   const all = [...sessions.map(s=>({...s,type:'gym'})), ...sportLogs.map(s=>({...s,type:'sport'}))]
     .sort((a,b)=>new Date(b.ts)-new Date(a.ts));
-  const container = document.getElementById('histList');
-  if (!all.length) { container.innerHTML = `<div class="no-data">No hay sesiones registradas.</div>`; return; }
-  container.innerHTML = all.map((s,i)=>{
-    const dateStr = new Date(s.ts).toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'long',year:'numeric'});
-    const timeStr = new Date(s.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-    if (s.type==='sport') {
-      return `<div style="margin:0 16px 8px;background:var(--surface);border:1px solid #2a2010;border-radius:var(--radius);overflow:hidden;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;" onclick="toggleHist('h${i}')">
-          <div><div style="font-size:11px;color:var(--orange);">${dateStr} · ${timeStr}</div>
-          <div style="font-size:15px;font-weight:500;margin-top:2px;">${s.sportName||'Deporte'}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${s.duracion||0}min · ${s.calories||0} kcal</div></div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <button class="btn-g danger" onclick="event.stopPropagation();deleteSession('sport','${s.id}')" style="padding:4px 8px;">✕</button>
-            <div style="color:var(--muted);">›</div>
+
+  if (!all.length) {
+    container.innerHTML = `<div class="no-data">No hay sesiones registradas todavía.</div>`;
+    return;
+  }
+
+  // Group by date
+  const groups = {};
+  all.forEach((s,i) => {
+    const d = new Date(s.ts);
+    const key = d.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({...s, _i: i});
+  });
+
+  let html = '';
+  Object.entries(groups).forEach(([dateLabel, items]) => {
+    html += `<div class="hist-date-label">${dateLabel}</div>`;
+    items.forEach(s => {
+      const i = s._i;
+      const timeStr = new Date(s.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+      if (s.type === 'sport') {
+        html += `
+        <div class="hist-card sport-hist" id="hcard${i}">
+          <div class="hist-header" onclick="toggleHist(${i})">
+            <div class="hist-type-dot" style="background:var(--orange)"></div>
+            <div style="flex:1;min-width:0;">
+              <div class="hist-title">${s.sportName || 'Deporte'}</div>
+              <div class="hist-meta">${timeStr} · ${s.duracion||0} min · ${s.calories||0} kcal</div>
+            </div>
+            <div class="hist-chev" id="hchev${i}">›</div>
+          </div>
+          <div class="hist-body" id="hbody${i}">
+            ${s.resultado ? `<div class="hist-detail-row"><span class="hist-detail-lbl">Resultado</span><span>${s.resultado}</span></div>` : ''}
+            ${s.notas ? `<div class="hist-detail-row"><span class="hist-detail-lbl">Notas</span><span>${s.notas}</span></div>` : ''}
+            <div style="margin-top:10px;">
+              <button class="btn-g danger" style="width:100%;justify-content:center;" onclick="deleteSession('sport','${s.id}')">Eliminar sesión</button>
+            </div>
+          </div>
+        </div>`;
+        return;
+      }
+
+      // GYM session
+      const dayName = routine?.days?.[s.dayIdx]?.name || `Día ${s.dayIdx+1}`;
+      const color = DAY_COLORS[s.dayIdx % 7];
+      const exList = Object.values(s.exercises || {});
+      const vol = exList.reduce((a,ex)=>a+(ex.series?.filter(ss=>ss.done&&(ss.kg||0)>0).reduce((b,ss)=>b+(ss.reps||0)*(ss.kg||0),0)||0),0);
+      const doneSeries = exList.reduce((a,ex)=>a+(ex.series?.filter(ss=>ss.done).length||0),0);
+
+      // PRs in this session: compare each kg vs all previous sessions
+      const prevSessions = sessions.filter(ps => new Date(ps.ts) < new Date(s.ts));
+      const prNames = [];
+      exList.forEach(ex => {
+        if (!ex.kg) return;
+        const maxNow = Math.max(0,...(ex.series?.filter(ss=>ss.done&&ss.kg>0).map(ss=>ss.kg)||[]));
+        if (!maxNow) return;
+        const prevMax = prevSessions.flatMap(ps=>Object.values(ps.exercises||{}).filter(e=>e.name===ex.name))
+          .flatMap(e=>e.series||[]).filter(ss=>ss.done&&ss.kg>0).reduce((a,ss)=>Math.max(a,ss.kg),0);
+        if (maxNow > prevMax) prNames.push(ex.name);
+      });
+
+      html += `
+      <div class="hist-card" id="hcard${i}" style="border-left:3px solid ${color}">
+        <div class="hist-header" onclick="toggleHist(${i})">
+          <div style="flex:1;min-width:0;">
+            <div class="hist-title">${dayName}</div>
+            <div class="hist-meta">${timeStr} · ${doneSeries} series${vol>0?' · '+Math.round(vol)+'kg vol':''}${s.calories?' · '+s.calories+' kcal':''}</div>
+            ${prNames.length ? `<div style="margin-top:4px;font-size:11px;color:var(--accent);">🏆 PR: ${prNames.join(', ')}</div>` : ''}
+          </div>
+          <div class="hist-chev" id="hchev${i}">›</div>
+        </div>
+        <div class="hist-body" id="hbody${i}">
+          ${exList.map(ex => {
+            const done = ex.series?.filter(ss=>ss.done) || [];
+            const maxKg = Math.max(0,...done.map(ss=>ss.kg||0));
+            const totalReps = done.reduce((a,ss)=>a+(ss.reps||0),0);
+            if (!done.length) return '';
+            return `<div class="hist-ex-row">
+              <div class="hist-ex-name">${ex.name}</div>
+              <div class="hist-ex-stats">
+                <span>${done.length} × ${Math.round(totalReps/done.length)} reps</span>
+                ${maxKg > 0 ? `<span class="hist-ex-kg">${maxKg} kg</span>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+          <div style="margin-top:10px;">
+            <button class="btn-g danger" style="width:100%;justify-content:center;" onclick="deleteSession('gym','${s.ts}')">Eliminar sesión</button>
           </div>
         </div>
-        <div id="h${i}" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);">
-          ${s.resultado?`Resultado: ${s.resultado}<br>`:''}${s.notas?`Notas: ${s.notas}`:''}
-        </div>
       </div>`;
-    }
-    const dayName = routine?.days?.[s.dayIdx]?.name || `Día ${s.dayIdx+1}`;
-    const exCount = Object.values(s.exercises||{}).length;
-    const vol = Object.values(s.exercises||{}).reduce((a,ex)=>a+(ex.series?.filter(ss=>ss.done&&(ss.kg||0)>0).reduce((b,ss)=>b+(ss.reps||0)*(ss.kg||0),0)||0),0);
-    const color = DAY_COLORS[s.dayIdx%7];
-    return `<div style="margin:0 16px 8px;background:var(--surface);border:1px solid var(--border);border-left:3px solid ${color};border-radius:var(--radius);overflow:hidden;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;" onclick="toggleHist('h${i}')">
-        <div><div style="font-size:11px;color:var(--muted);">${dateStr} · ${timeStr}</div>
-        <div style="font-size:15px;font-weight:500;margin-top:2px;">${dayName}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px;">${exCount} ejercicio${exCount!==1?'s':''} · ${vol>0?vol+' vol':'—'} ${s.calories?'· '+s.calories+' kcal':''}</div></div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <button class="btn-g danger" onclick="event.stopPropagation();deleteSession('gym','${s.ts}')" style="padding:4px 8px;">✕</button>
-          <div style="color:var(--muted);">›</div>
-        </div>
-      </div>
-      <div id="h${i}" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);">
-        ${Object.values(s.exercises||{}).map(ex=>{
-          const done=ex.series?.filter(s=>s.done)||[];
-          const kg=Math.max(0,...done.map(s=>s.kg||0));
-          return `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border);">
-            <span style="color:var(--muted);flex:1;">${ex.name}</span>
-            <span>${done.length} series${kg>0?' · '+kg+'kg':''}</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }).join('');
+    });
+  });
+
+  container.innerHTML = html;
 }
 
-function toggleHist(id) { const el=document.getElementById(id); if(el) el.style.display=el.style.display==='none'?'block':'none'; }
+function toggleHist(i) {
+  const body = document.getElementById(`hbody${i}`);
+  const chev = document.getElementById(`hchev${i}`);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (chev) chev.classList.toggle('open', open);
+}
 
 function deleteSession(type, id) {
   if (!confirm('¿Eliminar esta sesión?')) return;
