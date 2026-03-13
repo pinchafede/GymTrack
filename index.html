@@ -102,7 +102,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .home-hero p{color:var(--muted);font-size:13px;margin-top:2px;font-weight:300}
 .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 16px 14px}
 .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 10px;text-align:center}
-.stat-num{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--accent);line-height:1}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--accent);line-height:1;transition:color .3s}
 .stat-lbl{font-size:10px;color:var(--muted);margin-top:2px;font-weight:300;letter-spacing:.5px}
 .week-dots{display:flex;gap:5px;margin:0 16px 16px}
 .wdot{flex:1;max-width:34px;aspect-ratio:1;border-radius:50%;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;background:var(--surface2);color:var(--muted);border:1.5px solid var(--border);transition:all .2s}
@@ -388,7 +388,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="stats-row">
     <div class="stat-box"><div class="stat-num" id="hTotal">0</div><div class="stat-lbl">sesiones</div></div>
     <div class="stat-box"><div class="stat-num" id="hWeek">0</div><div class="stat-lbl">esta semana</div></div>
-    <div class="stat-box"><div class="stat-num" id="hStreak">0</div><div class="stat-lbl">racha días</div></div>
+    <div class="stat-box"><div class="stat-num" id="hStreak">0</div><div class="stat-lbl" id="hStreakLbl">racha días</div></div>
   </div>
   <div class="week-dots" id="weekDots"></div>
   <div class="sec-label">Seleccioná tu día</div>
@@ -406,8 +406,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <div id="s-workout" class="screen">
   <div class="workout-header">
     <div class="btn-back" onclick="navBack()">‹</div>
-    <div><div class="w-day-label" id="wLabel">Día 1</div><div class="w-day-name" id="wName">ENTRENAMIENTO</div></div>
-    <button class="btn-g" style="margin-left:auto;" onclick="openEditDay(currentDayIdx)">✏️</button>
+    <div style="flex:1;">
+      <div class="w-day-label" id="wLabel">Día 1</div>
+      <div class="w-day-name" id="wName">ENTRENAMIENTO</div>
+      <div id="wContext" style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:300;"></div>
+    </div>
+    <button class="btn-g" onclick="openEditDay(currentDayIdx)">✏️</button>
   </div>
   <div id="exList"></div>
   <div class="save-bar"><button class="btn-p" onclick="saveSession()">GUARDAR SESIÓN</button></div>
@@ -1414,7 +1418,18 @@ function renderHome() {
 
   document.getElementById('hTotal').textContent = sessions.length + sportLogs.length;
   document.getElementById('hWeek').textContent = totalThisWeek;
-  document.getElementById('hStreak').textContent = streak;
+
+  // Streak with fire emoji if >= 3
+  const streakEl = document.getElementById('hStreak');
+  const streakLbl = document.getElementById('hStreakLbl');
+  streakEl.textContent = streak;
+  if (streak >= 3) {
+    streakEl.style.color = 'var(--orange)';
+    if (streakLbl) streakLbl.textContent = '🔥 racha';
+  } else {
+    streakEl.style.color = 'var(--accent)';
+    if (streakLbl) streakLbl.textContent = 'racha días';
+  }
 
   // Week dots
   const wd = document.getElementById('weekDots');
@@ -1528,29 +1543,45 @@ function renderSuppWidget() {
   const today = db.suppToday.get();
   const container = document.getElementById('suppWidget');
   if (!supps.length) {
-    container.innerHTML = `<div style="margin:0 16px 24px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--muted);">
-      Sin suplementos. <span style="color:var(--accent);cursor:pointer;" onclick="navTo('supplements')">Agregar →</span></div>`;
+    container.innerHTML = '';
     return;
   }
   const done = supps.filter(s=>today[s.id]?.done).length;
+  const pending = supps.length - done;
   const pct = Math.round(done/supps.length*100);
-  container.innerHTML = `<div class="supp-widget">
+  const allDone = done === supps.length;
+
+  // Status message
+  let statusMsg, statusColor;
+  if (allDone) {
+    statusMsg = '¡Todo tomado! ✓';
+    statusColor = 'var(--accent)';
+  } else if (done === 0) {
+    statusMsg = `${pending} pendiente${pending!==1?'s':''}`;
+    statusColor = 'var(--muted)';
+  } else {
+    statusMsg = `${pending} pendiente${pending!==1?'s':''}`;
+    statusColor = 'var(--orange)';
+  }
+
+  container.innerHTML = `<div class="supp-widget" onclick="navTo('supplements')" style="cursor:pointer;">
     <div class="sw-head">
-      <div class="sw-title">💊 Suplementos de hoy</div>
-      <div style="font-size:11px;color:${done===supps.length?'var(--accent)':'var(--muted)'};">${done}/${supps.length}</div>
+      <div class="sw-title">💊 Suplementos</div>
+      <div style="font-size:12px;color:${statusColor};font-weight:500;">${statusMsg}</div>
     </div>
     <div style="margin:0 14px 10px;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;">
-      <div style="height:100%;width:${pct}%;background:var(--accent);transition:width .4s;border-radius:2px;"></div>
+      <div style="height:100%;width:${pct}%;background:${allDone?'var(--accent)':'var(--orange)'};transition:width .4s;border-radius:2px;"></div>
     </div>
     ${supps.slice(0,4).map(s=>{
       const chk = today[s.id]?.done;
-      return `<div class="sw-row" onclick="toggleSupp('${s.id}')">
+      return `<div class="sw-row" onclick="event.stopPropagation();toggleSupp('${s.id}')">
         <div class="sw-dot${chk?' done':''}"></div>
-        <div class="sw-name${chk?' done':''}">  ${s.name}</div>
-        ${chk?`<div class="sw-time">${today[s.id].hora}</div>`:''}
+        <div class="sw-name${chk?' done':''}">${s.name}</div>
+        ${chk?`<div class="sw-time">${today[s.id].hora}</div>`:
+              `<div style="font-size:10px;color:var(--muted);">${s.momento||''}</div>`}
       </div>`;
     }).join('')}
-    ${supps.length>4?`<div style="padding:8px 14px;font-size:11px;color:var(--accent);cursor:pointer;" onclick="navTo('supplements')">Ver todos (${supps.length}) →</div>`:''}
+    ${supps.length>4?`<div style="padding:6px 14px 4px;font-size:11px;color:var(--muted);">+${supps.length-4} más</div>`:''}
   </div>`;
 }
 
@@ -1565,8 +1596,23 @@ function startWorkout(di) {
   if (!routine?.days?.[di]) return;
   currentDayIdx = di;
   const day = routine.days[di];
+  const sessions = db.sessions.get().filter(s=>s.dayIdx===di);
+  const lastSess = sessions[sessions.length-1];
+
   document.getElementById('wLabel').textContent = `Día ${di+1}`;
   document.getElementById('wName').textContent = day.name.toUpperCase();
+
+  // Context line below the name
+  let ctx = '';
+  if (!sessions.length) {
+    ctx = 'Primera vez · ¡A romperla!';
+  } else {
+    const daysAgo = Math.floor((Date.now()-new Date(lastSess.ts))/86400000);
+    const ago = daysAgo===0?'hoy':daysAgo===1?'ayer':`hace ${daysAgo} días`;
+    ctx = `Sesión ${sessions.length+1} · última ${ago}`;
+  }
+  document.getElementById('wContext').textContent = ctx;
+
   renderExList(di);
   navTo('workout');
 }
