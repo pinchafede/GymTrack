@@ -15,6 +15,7 @@
 <title>GymTrack</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root {
   --bg:#0a0a0a; --surface:#141414; --surface2:#1c1c1c; --border:#2a2a2a;
@@ -752,6 +753,31 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
         <div style="color:var(--muted);">›</div>
       </div>
     </div>
+    <div class="sec-label">Sincronización con Google Drive</div>
+    <div class="settings-section">
+      <div class="settings-row">
+        <div>
+          <div class="settings-row-title" id="syncStatusTitle">⚪ No conectado</div>
+          <div class="settings-row-sub" id="syncStatusSub">Conectá tu cuenta Google para sincronizar</div>
+        </div>
+        <button class="btn-g" id="syncConnectBtn" onclick="gdriveConnect()" style="white-space:nowrap;padding:8px 14px;">Conectar</button>
+      </div>
+      <div id="syncActionsRow" style="display:none;">
+        <div class="settings-row" style="cursor:pointer;" onclick="gdriveUpload()">
+          <div><div class="settings-row-title">⬆️ Subir a Drive</div><div class="settings-row-sub">Guardar copia ahora</div></div>
+          <div style="color:var(--muted);">›</div>
+        </div>
+        <div class="settings-row" style="cursor:pointer;" onclick="gdriveDownload()">
+          <div><div class="settings-row-title">⬇️ Restaurar desde Drive</div><div class="settings-row-sub">Reemplaza los datos locales</div></div>
+          <div style="color:var(--muted);">›</div>
+        </div>
+        <div class="settings-row" style="cursor:pointer;" onclick="gdriveDisconnect()">
+          <div class="settings-row-title" style="color:#f08080;">Desconectar cuenta</div>
+          <div style="color:var(--muted);">›</div>
+        </div>
+      </div>
+    </div>
+
     <div class="sec-label">Datos y backup</div>
     <div class="settings-section">
       <div class="settings-row" style="cursor:pointer;" onclick="exportBackup()">
@@ -1347,10 +1373,239 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 // ═══════════════════════════════════════════════
+// GOOGLE DRIVE SYNC
+// ═══════════════════════════════════════════════
+const GDRIVE_CLIENT_ID = '919267412270-7qmda03ttdp7lqdgq9u2oe642tjn7st4.apps.googleusercontent.com';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const GDRIVE_FILE_NAME = 'gymtrack-sync.json';
+const AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 horas
+
+let gdriveToken = null;
+let gdriveTokenClient = null;
+
+function gdriveInit() {
+  const cfg = db.syncCfg.get();
+  if (cfg.token) {
+    gdriveToken = cfg.token;
+    updateSyncUI();
+    // Auto-sync on open if connected and enough time passed
+    const lastSync = cfg.lastSync ? new Date(cfg.lastSync).getTime() : 0;
+    const elapsed = Date.now() - lastSync;
+    if (elapsed > AUTO_SYNC_INTERVAL_MS) {
+      setTimeout(() => gdriveUpload(true), 3000); // silent auto-sync
+    }
+  }
+}
+
+function gdriveConnect() {
+  if (!window.google?.accounts?.oauth2) {
+    toast('Cargando Google... intentá de nuevo');
+    return;
+  }
+  if (!gdriveTokenClient) {
+    gdriveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GDRIVE_CLIENT_ID,
+      scope: GDRIVE_SCOPE,
+      callback: (resp) => {
+        if (resp.error) { toast('Error al conectar con Google'); return; }
+        gdriveToken = resp.access_token;
+        const cfg = db.syncCfg.get();
+        cfg.token = resp.access_token;
+        cfg.expires = Date.now() + (resp.expires_in * 1000);
+        db.syncCfg.set(cfg);
+        updateSyncUI();
+        toast('✓ Conectado a Google Drive');
+        gdriveUpload(true); // first sync on connect
+      },
+    });
+  }
+  gdriveTokenClient.requestAccessToken();
+}
+
+function gdriveDisconnect() {
+  if (!confirm('¿Desconectar Google Drive?')) return;
+  if (gdriveToken && window.google?.accounts?.oauth2) {
+    google.accounts.oauth2.revoke(gdriveToken);
+  }
+  gdriveToken = null;
+  const cfg = db.syncCfg.get();
+  delete cfg.token;
+  delete cfg.expires;
+  delete cfg.lastSync;
+  delete cfg.fileId;
+  db.syncCfg.set(cfg);
+  updateSyncUI();
+  toast('Cuenta desconectada');
+}
+
+function updateSyncUI() {
+  const cfg = db.syncCfg.get();
+  const connected = !!gdriveToken;
+  const titleEl = document.getElementById('syncStatusTitle');
+  const subEl = document.getElementById('syncStatusSub');
+  const btnEl = document.getElementById('syncConnectBtn');
+  const actionsEl = document.getElementById('syncActionsRow');
+  if (!titleEl) return;
+
+  if (connected) {
+    titleEl.textContent = '🟢 Conectado a Google Drive';
+    if (cfg.lastSync) {
+      const d = new Date(cfg.lastSync);
+      const rel = formatRelativeTime(d);
+      subEl.textContent = `Última sincronización: ${rel}`;
+    } else {
+      subEl.textContent = 'Sincronizando automáticamente cada 6 horas';
+    }
+    if (btnEl) btnEl.style.display = 'none';
+    if (actionsEl) actionsEl.style.display = '';
+  } else {
+    titleEl.textContent = '⚪ No conectado';
+    subEl.textContent = 'Conectá tu cuenta Google para sincronizar';
+    if (btnEl) btnEl.style.display = '';
+    if (actionsEl) actionsEl.style.display = 'none';
+  }
+}
+
+function formatRelativeTime(date) {
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 2) return 'hace un momento';
+  if (mins < 60) return `hace ${mins} min`;
+  if (hours < 24) return `hace ${hours}h`;
+  return `hace ${days} día${days !== 1 ? 's' : ''}`;
+}
+
+async function gdriveRequest(method, url, body, isJson = true) {
+  const headers = { Authorization: `Bearer ${gdriveToken}` };
+  if (isJson && body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(url, { method, headers, body: body ? (isJson ? JSON.stringify(body) : body) : undefined });
+  if (res.status === 401) {
+    // Token expired — reconnect
+    gdriveToken = null;
+    const cfg = db.syncCfg.get();
+    delete cfg.token;
+    db.syncCfg.set(cfg);
+    updateSyncUI();
+    toast('Sesión expirada · volvé a conectar');
+    throw new Error('Token expired');
+  }
+  return res;
+}
+
+async function gdriveFindFile() {
+  const cfg = db.syncCfg.get();
+  if (cfg.fileId) return cfg.fileId;
+  const res = await gdriveRequest('GET',
+    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${GDRIVE_FILE_NAME}'&fields=files(id)`
+  );
+  const data = await res.json();
+  const fileId = data.files?.[0]?.id || null;
+  if (fileId) {
+    cfg.fileId = fileId;
+    db.syncCfg.set(cfg);
+  }
+  return fileId;
+}
+
+async function gdriveUpload(silent = false) {
+  if (!gdriveToken) { toast('Conectá Google Drive primero'); return; }
+  if (!silent) toast('Subiendo a Drive...');
+
+  try {
+    const payload = {
+      version: 3,
+      profile:    db.profile.get(),
+      routine:    db.routine.get(),
+      sessions:   db.sessions.get(),
+      sports:     db.sports.get(),
+      sportLogs:  db.sportLogs.get(),
+      supps:      db.supps.get(),
+      hidden:     db.hidden.get(),
+      weightLog:  db.weightLog.get(),
+      restCfg:    db.restCfg.get(),
+      notifCfg:   db.notifCfg.get(),
+      synced:     new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload)], {type: 'application/json'});
+    const fileId = await gdriveFindFile();
+
+    if (fileId) {
+      // Update existing file
+      await gdriveRequest('PATCH',
+        `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+        blob, false
+      );
+    } else {
+      // Create new file in appDataFolder
+      const meta = new Blob([JSON.stringify({
+        name: GDRIVE_FILE_NAME,
+        parents: ['appDataFolder']
+      })], {type: 'application/json'});
+      const form = new FormData();
+      form.append('metadata', meta);
+      form.append('file', blob);
+      const res = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+        { method: 'POST', headers: { Authorization: `Bearer ${gdriveToken}` }, body: form }
+      );
+      const created = await res.json();
+      const cfg = db.syncCfg.get();
+      cfg.fileId = created.id;
+      db.syncCfg.set(cfg);
+    }
+
+    const cfg = db.syncCfg.get();
+    cfg.lastSync = new Date().toISOString();
+    db.syncCfg.set(cfg);
+    updateSyncUI();
+    if (!silent) toast('✓ Sincronizado con Drive');
+  } catch(e) {
+    if (!silent) toast('Error al subir a Drive');
+    console.error('gdrive upload error:', e);
+  }
+}
+
+async function gdriveDownload() {
+  if (!gdriveToken) { toast('Conectá Google Drive primero'); return; }
+  if (!confirm('¿Restaurar datos desde Drive? Se sobreescribirán los datos locales.')) return;
+  toast('Descargando desde Drive...');
+
+  try {
+    const fileId = await gdriveFindFile();
+    if (!fileId) { toast('No hay copia en Drive todavía'); return; }
+
+    const res = await gdriveRequest('GET',
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`
+    );
+    const data = await res.json();
+
+    if (data.profile)   db.profile.set(data.profile);
+    if (data.routine)   db.routine.set(data.routine);
+    if (data.sessions)  db.sessions.set(data.sessions);
+    if (data.sports)    db.sports.set(data.sports);
+    if (data.sportLogs) db.sportLogs.set(data.sportLogs);
+    if (data.supps)     db.supps.set(data.supps);
+    if (data.hidden)    db.hidden.set(data.hidden);
+    if (data.weightLog) db.weightLog.set(data.weightLog);
+    if (data.restCfg)   db.restCfg.set(data.restCfg);
+
+    toast('✓ Datos restaurados desde Drive');
+    renderHome();
+    updateSyncUI();
+  } catch(e) {
+    toast('Error al restaurar desde Drive');
+    console.error('gdrive download error:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.4.0';
 // Changelog:
+// 3.4.0 — Google Drive sync automático
 // 3.3.0 — Exportar sesión como imagen
 // 3.2.0 — Fotos de progreso con PIN
 // 3.1.0 — Recordatorios de suplementos
@@ -1386,6 +1641,7 @@ const db = {
   notifCfg:   { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_notif_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_notif_cfg',JSON.stringify(v)) },
   pinCfg:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_pin_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_pin_cfg',JSON.stringify(v)) },
   photos:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_photos')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_photos',JSON.stringify(v)) },
+  syncCfg:    { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sync_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_sync_cfg',JSON.stringify(v)) },
   weightLog:  { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_weightlog')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_weightlog',JSON.stringify(v)) },
 };
 
@@ -2670,6 +2926,8 @@ function saveSession() {
   allSessions.push(sess);
   db.sessions.set(allSessions);
   if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 120]);
+  // Auto-sync to Drive if connected
+  if (gdriveToken) setTimeout(() => gdriveUpload(true), 1000);
 
   // Show quick summary overlay
   showQuickSummary(sess, completed, skipped, newPRs, curVol, prevVol, cal);
@@ -4018,6 +4276,8 @@ function init() {
   }
   // Start supplement notification scheduler
   setTimeout(() => scheduleAllNotifs(), 1000);
+  // Init Google Drive sync
+  setTimeout(() => gdriveInit(), 2000);
   initOnboarding();
 }
 
