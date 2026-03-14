@@ -580,7 +580,6 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     <div class="page-title">FOTOS DE PROGRESO</div>
     <button onclick="triggerPhotoUpload()" style="margin-left:auto;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:7px 14px;cursor:pointer;">+ Foto</button>
   </div>
-  <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoUpload(this)">
   <div id="photoGrid" style="padding:12px 16px 24px;"></div>
 </div>
 
@@ -981,6 +980,8 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   </div>
 </div>
 
+<!-- Photo file input — outside any screen to avoid display:none issues on mobile -->
+<input type="file" id="photoInput" accept="image/*" style="display:none;position:fixed;top:-100px;" onchange="handlePhotoUpload(this)">
 <div class="toast" id="toastEl"></div>
 
 <script>
@@ -1114,7 +1115,10 @@ function processPinInput() {
 }
 
 function triggerPhotoUpload() {
-  document.getElementById('photoInput')?.click();
+  const input = document.getElementById('photoInput');
+  if (!input) return;
+  input.value = ''; // reset so same file can be selected again
+  input.click();
 }
 
 function handlePhotoUpload(input) {
@@ -1628,8 +1632,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.5.1';
+const APP_VERSION = '3.5.2';
 // Changelog:
+// 3.5.2 — Fix subida fotos en móvil
 // 3.5.1 — Fix navegación fotos post-PIN
 // 3.5.0 — Pantalla de Perfil separada
 // 3.4.2 — Fix confirmación PIN
