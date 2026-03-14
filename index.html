@@ -1690,8 +1690,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.7.1';
+const APP_VERSION = '3.7.2';
 // Changelog:
+// 3.7.2 — Fix suplementos fecha local, limpieza keys viejas
 // 3.7.1 — Fix fechas locales (no UTC)
 // 3.7.0 — Confirmación salir workout, timer preciso, swipe mejorado, hints primera sesión
 // 3.6.2 — Fix detección cambio de día en saludo home
@@ -3822,6 +3823,14 @@ function fetchCoachAI(dayIdx, sessions, card, cacheKey) {
 // ═══════════════════════════════════════════════
 let editingSuppId = null;
 
+function resetSuppToday() {
+  if (!confirm('¿Resetear todos los suplementos de hoy?')) return;
+  db.suppToday.set({});
+  renderSuppWidget();
+  renderSupplements();
+  toast('Checks de hoy reseteados');
+}
+
 function toggleSupp(id) {
   const today = db.suppToday.get();
   const checking = !today[id]?.done;
@@ -3845,7 +3854,13 @@ function renderSupplements() {
   const done = supps.filter(s=>today[s.id]?.done).length;
   const pct = Math.round(done/supps.length*100);
   let html = `<div style="margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;">
-    <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;"><span style="color:var(--muted);">Progreso de hoy</span><span style="color:var(--accent);">${done}/${supps.length}</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:13px;color:var(--muted);">Progreso de hoy</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:13px;color:var(--accent);">${done}/${supps.length}</span>
+        <button class="btn-g" style="padding:4px 10px;font-size:11px;" onclick="resetSuppToday()">↺ Resetear</button>
+      </div>
+    </div>
     <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
   </div>`;
   Object.entries(groups).forEach(([key, label])=>{
@@ -4479,11 +4494,25 @@ function init() {
       if (e.data === 'RELOAD') location.reload(true);
     });
   }
+  // Clean up old suppToday keys that don't match today's local date
+  cleanOldSuppKeys();
   // Start supplement notification scheduler
   setTimeout(() => scheduleAllNotifs(), 1000);
   // Init Google Drive sync
   setTimeout(() => gdriveInit(), 2000);
   initOnboarding();
+}
+
+function cleanOldSuppKeys() {
+  const todayKey = 'gt_supp_' + localDateStr();
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('gt_supp_') && key !== todayKey) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k));
 }
 
 document.addEventListener('DOMContentLoaded', init);
