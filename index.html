@@ -1007,7 +1007,7 @@ function showPin(mode, callback) {
   pinMode = mode;
   pinCallback = callback;
   pinBuffer = '';
-  pinTempNew = '';
+  if (mode === 'set') pinTempNew = ''; // only reset on fresh start, not on confirm
   updatePinDots();
   const title = document.getElementById('pinTitle');
   const subtitle = document.getElementById('pinSubtitle');
@@ -1079,9 +1079,16 @@ function processPinInput() {
       toast('PIN incorrecto');
     }
   } else if (pinMode === 'set') {
-    pinTempNew = pinBuffer;
+    pinTempNew = pinBuffer; // save first entry
     pinBuffer = '';
-    showPin('confirm', pinCallback);
+    // switch to confirm WITHOUT resetting pinTempNew
+    pinMode = 'confirm';
+    pinBuffer = '';
+    updatePinDots();
+    const title = document.getElementById('pinTitle');
+    const subtitle = document.getElementById('pinSubtitle');
+    if (title) title.textContent = 'CONFIRMÁ EL PIN';
+    if (subtitle) subtitle.textContent = 'Ingresá el PIN de nuevo';
   } else if (pinMode === 'confirm') {
     if (pinBuffer === pinTempNew) {
       cfg.hash = hashPin(pinBuffer);
@@ -1612,8 +1619,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.4.1';
+const APP_VERSION = '3.4.2';
 // Changelog:
+// 3.4.2 — Fix confirmación PIN
 // 3.4.1 — Fix teclado PIN
 // 3.4.0 — Google Drive sync automático
 // 3.3.0 — Exportar sesión como imagen
