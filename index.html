@@ -347,6 +347,19 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .weight-entry-delta.up{color:#f08080;background:rgba(240,128,128,.1);}
 .weight-entry-delta.down{color:var(--accent);background:var(--accent-dim);}
 .weight-entry-delta.same{color:var(--muted);background:var(--surface2);}
+
+/* PIN */
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:var(--surface2);transition:all .15s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+.pin-dot.error{background:#f08080;border-color:#f08080;}
+.pin-key{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'DM Sans',sans-serif;font-size:20px;font-weight:500;padding:16px;cursor:pointer;transition:background .1s;-webkit-tap-highlight-color:transparent;}
+.pin-key:active{background:var(--surface2);}
+
+/* Photos grid */
+.photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.photo-thumb{border-radius:var(--radius);overflow:hidden;position:relative;aspect-ratio:3/4;cursor:pointer;background:var(--surface);}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.photo-thumb-meta{position:absolute;bottom:0;left:0;right:0;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.7));font-size:11px;color:#fff;}
 .toggle-track{width:44px;height:26px;background:var(--surface2);border:1.5px solid var(--border);border-radius:13px;position:relative;transition:all .2s;cursor:pointer;}
 .toggle-track.on{background:var(--accent);border-color:var(--accent);}
 .toggle-track::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
@@ -549,9 +562,56 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   <div class="card">
     <div class="list-row" onclick="navTo('supplements')"><div style="font-size:14px;">💊 Gestionar suplementos</div><div style="color:var(--muted)">›</div></div>
   </div>
+  <div class="sec-label">Progreso</div>
+  <div class="card">
+    <div class="list-row" onclick="openPhotos()"><div style="font-size:14px;">📸 Fotos de progreso</div><div style="color:var(--muted)">›</div></div>
+  </div>
   <div class="sec-label">Configuración</div>
   <div class="card">
     <div class="list-row" onclick="navTo('settings')"><div style="font-size:14px;">⚙️ Perfil y ajustes</div><div style="color:var(--muted)">›</div></div>
+  </div>
+</div>
+
+<!-- ═══ PHOTOS ═══ -->
+<div id="s-photos" class="screen">
+  <div class="page-header">
+    <div class="btn-back" onclick="navBack()">‹</div>
+    <div class="page-title">FOTOS DE PROGRESO</div>
+    <button onclick="triggerPhotoUpload()" style="margin-left:auto;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:7px 14px;cursor:pointer;">+ Foto</button>
+  </div>
+  <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoUpload(this)">
+  <div id="photoGrid" style="padding:12px 16px 24px;"></div>
+</div>
+
+<!-- PIN overlay -->
+<div class="overlay" id="pinOverlay">
+  <div class="sheet" style="max-height:auto;">
+    <div class="sheet-drag"></div>
+    <div style="padding:24px 24px 32px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">🔒</div>
+      <div id="pinTitle" style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:6px;">INGRESÁ TU PIN</div>
+      <div id="pinSubtitle" style="font-size:13px;color:var(--muted);margin-bottom:24px;">Tus fotos están protegidas</div>
+      <div style="display:flex;justify-content:center;gap:12px;margin-bottom:24px;" id="pinDots">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto 16px;">
+        ${[1,2,3,4,5,6,7,8,9,'','0','⌫'].map(n=>`
+          <button class="pin-key" onclick="pinKey('${n}')">${n}</button>`).join('')}
+      </div>
+      <button class="btn-g" style="width:100%;justify-content:center;" onclick="closePinOverlay()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Photo viewer overlay -->
+<div class="overlay" id="photoViewOverlay" onclick="if(event.target===this)closePhotoView()">
+  <div style="position:relative;max-width:600px;margin:auto;padding:20px;">
+    <img id="photoViewImg" style="width:100%;border-radius:var(--radius);display:block;">
+    <div id="photoViewMeta" style="padding:12px 0;font-size:13px;color:var(--muted);text-align:center;"></div>
+    <button class="btn-g danger" style="width:100%;justify-content:center;" onclick="deleteCurrentPhoto()">🗑 Eliminar foto</button>
   </div>
 </div>
 
@@ -683,6 +743,13 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
           </div>
           <span style="font-size:12px;color:var(--muted);">seg</span>
         </div>
+      </div>
+    </div>
+    <div class="sec-label">Fotos de progreso</div>
+    <div class="settings-section">
+      <div class="settings-row" style="cursor:pointer;" onclick="setupPin()">
+        <div><div class="settings-row-title" id="pinSettingsTitle">🔒 Configurar PIN</div><div class="settings-row-sub">Protege el acceso a tus fotos</div></div>
+        <div style="color:var(--muted);">›</div>
       </div>
     </div>
     <div class="sec-label">Datos y backup</div>
@@ -871,11 +938,226 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 <script>
 // ═══════════════════════════════════════════════
 // ═══════════════════════════════════════════════
+// PHOTOS & PIN
+// ═══════════════════════════════════════════════
+let pinBuffer = '';
+let pinMode = 'unlock'; // 'unlock' | 'set' | 'confirm'
+let pinTempNew = '';
+let pinCallback = null;
+let currentViewPhotoTs = null;
+
+function openPhotos() {
+  const pin = db.pinCfg.get();
+  if (pin.hash) {
+    // Has PIN — ask for it
+    showPin('unlock', () => {
+      navTo('photos');
+      renderPhotoGrid();
+    });
+  } else {
+    // No PIN yet — go straight in, prompt to set one
+    navTo('photos');
+    renderPhotoGrid();
+    setTimeout(() => {
+      if (!db.pinCfg.get().hash) {
+        toast('Tip: configurá un PIN en Ajustes para proteger tus fotos');
+      }
+    }, 800);
+  }
+}
+
+function showPin(mode, callback) {
+  pinMode = mode;
+  pinCallback = callback;
+  pinBuffer = '';
+  pinTempNew = '';
+  updatePinDots();
+  const title = document.getElementById('pinTitle');
+  const subtitle = document.getElementById('pinSubtitle');
+  if (mode === 'unlock') {
+    title.textContent = 'INGRESÁ TU PIN';
+    subtitle.textContent = 'Tus fotos están protegidas';
+  } else if (mode === 'set') {
+    title.textContent = 'CREAR PIN';
+    subtitle.textContent = 'Elegí un PIN de 4 dígitos';
+  } else if (mode === 'confirm') {
+    title.textContent = 'CONFIRMÁ EL PIN';
+    subtitle.textContent = 'Ingresá el PIN de nuevo';
+  }
+  document.getElementById('pinOverlay').classList.add('open');
+}
+
+function closePinOverlay() {
+  document.getElementById('pinOverlay').classList.remove('open');
+  pinBuffer = '';
+  pinCallback = null;
+}
+
+function pinKey(val) {
+  if (val === '⌫') {
+    pinBuffer = pinBuffer.slice(0, -1);
+    updatePinDots();
+    return;
+  }
+  if (val === '' || pinBuffer.length >= 4) return;
+  pinBuffer += val;
+  updatePinDots();
+  if (pinBuffer.length === 4) {
+    setTimeout(() => processPinInput(), 150);
+  }
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById(`pd${i}`);
+    if (dot) dot.classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function pinError() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById(`pd${i}`);
+    if (dot) { dot.classList.add('error'); setTimeout(() => dot.classList.remove('error','filled'), 500); }
+  }
+  pinBuffer = '';
+  setTimeout(() => updatePinDots(), 500);
+  if (navigator.vibrate) navigator.vibrate([80,40,80]);
+}
+
+function hashPin(pin) {
+  // Simple hash — not crypto-grade but enough for privacy
+  let h = 0;
+  for (let i = 0; i < pin.length; i++) h = Math.imul(31, h) + pin.charCodeAt(i) | 0;
+  return h.toString(36) + pin.length;
+}
+
+function processPinInput() {
+  const cfg = db.pinCfg.get();
+  if (pinMode === 'unlock') {
+    if (hashPin(pinBuffer) === cfg.hash) {
+      closePinOverlay();
+      if (pinCallback) pinCallback();
+    } else {
+      pinError();
+      toast('PIN incorrecto');
+    }
+  } else if (pinMode === 'set') {
+    pinTempNew = pinBuffer;
+    pinBuffer = '';
+    showPin('confirm', pinCallback);
+  } else if (pinMode === 'confirm') {
+    if (pinBuffer === pinTempNew) {
+      cfg.hash = hashPin(pinBuffer);
+      db.pinCfg.set(cfg);
+      closePinOverlay();
+      toast('✓ PIN configurado');
+      if (pinCallback) pinCallback();
+    } else {
+      pinError();
+      toast('Los PINs no coinciden');
+      setTimeout(() => showPin('set', pinCallback), 600);
+    }
+  }
+}
+
+function triggerPhotoUpload() {
+  document.getElementById('photoInput')?.click();
+}
+
+function handlePhotoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    // Compress image before storing
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxW = 800;
+      const scale = Math.min(1, maxW / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const compressed = canvas.toDataURL('image/jpeg', 0.75);
+
+      const photos = db.photos.get();
+      const weightLog = db.weightLog.get();
+      const lastWeight = weightLog.length ? weightLog[weightLog.length-1].kg : null;
+      photos.push({
+        ts: new Date().toISOString(),
+        data: compressed,
+        kg: lastWeight,
+      });
+      db.photos.set(photos);
+      renderPhotoGrid();
+      toast('✓ Foto guardada');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function renderPhotoGrid() {
+  const photos = db.photos.get();
+  const container = document.getElementById('photoGrid');
+  if (!container) return;
+
+  if (!photos.length) {
+    container.innerHTML = `<div class="no-data" style="padding:48px 0;">
+      Todavía no hay fotos.<br>
+      <span style="font-size:13px;color:var(--muted);">Tocá + Foto para agregar la primera.</span>
+    </div>`;
+    return;
+  }
+
+  const sorted = [...photos].reverse();
+  container.innerHTML = `<div class="photo-grid">
+    ${sorted.map(p => {
+      const dateStr = new Date(p.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short',year:'numeric'});
+      const kgStr = p.kg ? ` · ${p.kg}kg` : '';
+      return `<div class="photo-thumb" onclick="viewPhoto('${p.ts}')">
+        <img src="${p.data}" loading="lazy">
+        <div class="photo-thumb-meta">${dateStr}${kgStr}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function viewPhoto(ts) {
+  const photos = db.photos.get();
+  const photo = photos.find(p => p.ts === ts);
+  if (!photo) return;
+  currentViewPhotoTs = ts;
+  document.getElementById('photoViewImg').src = photo.data;
+  const dateStr = new Date(photo.ts).toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const kgStr = photo.kg ? ` · ${photo.kg} kg` : '';
+  document.getElementById('photoViewMeta').textContent = dateStr + kgStr;
+  document.getElementById('photoViewOverlay').classList.add('open');
+}
+
+function closePhotoView() {
+  document.getElementById('photoViewOverlay').classList.remove('open');
+  currentViewPhotoTs = null;
+}
+
+function deleteCurrentPhoto() {
+  if (!currentViewPhotoTs) return;
+  if (!confirm('¿Eliminar esta foto?')) return;
+  const photos = db.photos.get().filter(p => p.ts !== currentViewPhotoTs);
+  db.photos.set(photos);
+  closePhotoView();
+  renderPhotoGrid();
+  toast('Foto eliminada');
+}
+
+// ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 // Changelog:
-// 3.1.0 — Notificaciones push de recordatorio
+// 3.2.0 — Fotos de progreso con PIN
+// 3.1.0 — Recordatorios de suplementos
 // 3.0.0 — RPE por ejercicio + análisis en Coach
 // 2.9.0 — Notas por sesión + análisis en Coach
 // 2.8.0 — Seguimiento de peso corporal con gráfico
@@ -906,6 +1188,8 @@ const db = {
   hidden:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_hidden')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_hidden',JSON.stringify(v)) },
   restCfg:    { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_rest_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_rest_cfg',JSON.stringify(v)) },
   notifCfg:   { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_notif_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_notif_cfg',JSON.stringify(v)) },
+  pinCfg:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_pin_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_pin_cfg',JSON.stringify(v)) },
+  photos:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_photos')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_photos',JSON.stringify(v)) },
   weightLog:  { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_weightlog')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_weightlog',JSON.stringify(v)) },
 };
 
@@ -1061,6 +1345,7 @@ function navTo(id, back) {
   if (id==='sports') renderSports();
   if (id==='supplements') renderSupplements();
   if (id==='settings') loadSettings();
+  if (id==='photos') renderPhotoGrid();
 
   // Snap all screens to clean state
   document.querySelectorAll('.screen').forEach(s => {
@@ -3150,6 +3435,31 @@ const NOTIF_MOMENTS = ['mañana','pre','post','noche'];
 const NOTIF_LABELS  = {'mañana':'🌅 Mañana','pre':'⚡ Pre-entreno','post':'💪 Post-entreno','noche':'🌙 Noche'};
 const NOTIF_DEFAULTS = {'mañana':'08:00','pre':'17:00','post':'19:30','noche':'22:00'};
 
+function setupPin() {
+  const cfg = db.pinCfg.get();
+  if (cfg.hash) {
+    // Already has PIN — ask for current before changing
+    showPin('unlock', () => {
+      pinTempNew = '';
+      showPin('set', () => {
+        updatePinSettingsTitle();
+        toast('✓ PIN actualizado');
+      });
+    });
+  } else {
+    showPin('set', () => {
+      updatePinSettingsTitle();
+    });
+  }
+}
+
+function updatePinSettingsTitle() {
+  const el = document.getElementById('pinSettingsTitle');
+  if (!el) return;
+  const cfg = db.pinCfg.get();
+  el.textContent = cfg.hash ? '🔒 Cambiar PIN' : '🔒 Configurar PIN';
+}
+
 function loadNotifCfg() {
   const cfg = db.notifCfg.get();
   const track = document.getElementById('notifTrack');
@@ -3268,6 +3578,7 @@ function loadSettings() {
   updateBMR();
   renderWeightSection();
   loadNotifCfg();
+  updatePinSettingsTitle();
   // Show current version
   const vEl = document.getElementById('appVersionLabel');
   if (vEl) vEl.textContent = APP_VERSION;
