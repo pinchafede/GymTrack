@@ -438,6 +438,12 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     <button class="btn-g" onclick="openEditDay(currentDayIdx)">✏️</button>
   </div>
   <div id="exList"></div>
+  <div style="padding:10px 16px 0;background:var(--bg);">
+    <textarea id="sessNota" rows="2" placeholder="¿Cómo te sentiste? Notas de la sesión..."
+      style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
+             color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;
+             resize:none;outline:none;line-height:1.5;"></textarea>
+  </div>
   <div class="save-bar"><button class="btn-p" onclick="saveSession()">GUARDAR SESIÓN</button></div>
 </div>
 
@@ -819,8 +825,9 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 // Changelog:
+// 2.9.0 — Notas por sesión + análisis en Coach
 // 2.8.0 — Seguimiento de peso corporal con gráfico
 // 2.7.0 — Botón de actualización forzada, SW network-first
 // 2.6.0 — Onboarding con opción de importar backup
@@ -2081,7 +2088,8 @@ function saveSession() {
   const warmup = {t:document.getElementById('warmT')?.value||'', v:document.getElementById('warmV')?.value||'', i:document.getElementById('warmI')?.value||''};
   const cooldown = {t:document.getElementById('coolT')?.value||''};
 
-  const sess = { ts: now, dayIdx: currentDayIdx, exercises, warmup, cooldown };
+  const nota = document.getElementById('sessNota')?.value.trim() || '';
+  const sess = { ts: now, dayIdx: currentDayIdx, exercises, warmup, cooldown, nota };
   const cal = calcCalories(sess);
   if (cal) sess.calories = cal.total;
 
@@ -2157,11 +2165,26 @@ function showQuickSummary(sess, completed, skipped, newPRs, curVol, prevVol, cal
     html += `<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Salteaste ${skipped} ejercicio${skipped!==1?'s':''}.</div>`;
   }
 
+  // Nota editable en el resumen
+  html += `<div style="margin-bottom:12px;">
+    <textarea id="summaryNota" rows="2" placeholder="¿Cómo te sentiste? Podés editarlo acá..."
+      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+             color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;
+             resize:none;outline:none;line-height:1.5;">${sess.nota||''}</textarea>
+  </div>`;
+
   document.getElementById('calContent').innerHTML = html;
 
-  // Update buttons: only "Volver al inicio"
+  // Update buttons
   document.getElementById('calConfirmBtn').textContent = 'IR AL INICIO';
   document.getElementById('calConfirmBtn').onclick = () => {
+    // Save final nota (may have been edited in summary)
+    const finalNota = document.getElementById('summaryNota')?.value.trim() || sess.nota || '';
+    if (finalNota !== (sess.nota || '')) {
+      const allSess = db.sessions.get();
+      const idx = allSess.findIndex(s => s.ts === sess.ts);
+      if (idx >= 0) { allSess[idx].nota = finalNota; db.sessions.set(allSess); }
+    }
     document.getElementById('calOverlay').classList.remove('open');
     navTo('home');
   };
@@ -2624,6 +2647,47 @@ function renderCoach() {
 
   let html = '';
 
+  // ── Análisis de notas ────────────────────────────────────────────────────
+  const WARN_WORDS = ['cansado','cansada','dolor','lesion','lesión','mal','pesado','pesada','agotado','agotada','fallo','difícil','dificil','no pude'];
+  const GOOD_WORDS = ['bien','genial','excelente','energía','energia','fuerte','liviano','liviana','perfecto','logré','logre'];
+
+  const notaSessions = sessions.filter(s => s.nota && s.nota.trim().length > 0).slice(-10);
+  const recentWarn = notaSessions.filter(s => {
+    const n = s.nota.toLowerCase();
+    return WARN_WORDS.some(w => n.includes(w));
+  });
+  const recentGood = notaSessions.filter(s => {
+    const n = s.nota.toLowerCase();
+    return GOOD_WORDS.some(w => n.includes(w));
+  });
+
+  if (recentWarn.length >= 2) {
+    html += `<div style="margin:0 16px 14px;background:rgba(240,128,128,.07);border:1px solid rgba(240,128,128,.2);border-radius:var(--radius);padding:12px 14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#f08080;font-weight:600;margin-bottom:6px;">⚠️ POSIBLE SOBRECARGA</div>
+      <div style="font-size:13px;color:#ccc;line-height:1.6;">Tus últimas notas mencionan cansancio o malestar ${recentWarn.length} veces. Considerá bajar la intensidad o tomarte un día extra de descanso.</div>
+    </div>`;
+  } else if (recentGood.length >= 3) {
+    html += `<div style="margin:0 16px 14px;background:rgba(212,245,60,.06);border:1px solid var(--accent-border);border-radius:var(--radius);padding:12px 14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:6px;">🔥 EN RACHA</div>
+      <div style="font-size:13px;color:#ccc;line-height:1.6;">Tus últimas notas son positivas. Buen momento para intentar subir peso en algún ejercicio.</div>
+    </div>`;
+  }
+
+  // ── Últimas notas ─────────────────────────────────────────────────────────
+  if (notaSessions.length) {
+    html += `<div class="sec-label">Últimas notas</div>
+    <div style="margin:0 16px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      ${[...notaSessions].reverse().slice(0,4).map(s => {
+        const dateStr = new Date(s.ts).toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
+        const dayName = (db.routine.get()?.days?.[s.dayIdx]?.name) || '';
+        return `<div style="padding:10px 14px;border-bottom:1px solid var(--border);">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">${dateStr} · ${dayName}</div>
+          <div style="font-size:13px;color:#ccc;line-height:1.5;font-style:italic;">"${s.nota}"</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
   if (lastExWeights.length) {
     html += `<div class="sec-label">Último entrenamiento · ${lastDay.name}</div>
     <div style="margin:0 16px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
@@ -2939,6 +3003,7 @@ function renderHistory() {
               </div>
             </div>`;
           }).join('')}
+          ${s.nota ? `<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border-left:3px solid ${color};font-size:13px;color:#ccc;line-height:1.6;font-style:italic;">"${s.nota}"</div>` : ''}
           <div style="margin-top:10px;">
             <button class="btn-g danger" style="width:100%;justify-content:center;" onclick="deleteSession('gym','${s.ts}')">Eliminar sesión</button>
           </div>
