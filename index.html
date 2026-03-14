@@ -26,7 +26,7 @@
   --nav-h:64px; --radius:12px; --radius-sm:8px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:var(--nav-h)}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:var(--nav-h);overscroll-behavior:none;}
 
 /* SCREENS */
 .screen{display:none;min-height:calc(100vh - var(--nav-h));will-change:transform,opacity;}
@@ -688,6 +688,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 <div id="s-profile" class="screen">
   <div class="page-header"><div class="btn-back" onclick="navBack()">‹</div><div class="page-title">MI PERFIL</div></div>
   <div style="padding:4px 0 40px;">
+
     <div class="sec-label">Datos personales</div>
     <div class="settings-section">
       <div class="settings-row"><div><div class="settings-row-title">Nombre</div></div><input class="input-f sm" type="text" id="cfgNombre" style="width:140px;" placeholder="Tu nombre"></div>
@@ -695,26 +696,48 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <div class="settings-row"><div><div class="settings-row-title">Altura (cm)</div></div><input class="input-f sm" type="number" inputmode="numeric" id="cfgAltura" style="width:90px;" oninput="updateBMR()"></div>
       <div class="settings-row"><div><div class="settings-row-title">Edad</div></div><input class="input-f sm" type="number" inputmode="numeric" id="cfgEdad" style="width:90px;" oninput="updateBMR()"></div>
       <div class="settings-row"><div><div class="settings-row-title">Sexo</div></div><select class="input-f sm" id="cfgSexo" style="width:130px;cursor:pointer;" onchange="updateBMR()"><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
-      <div class="settings-row"><div><div class="settings-row-title">BMR estimado</div><div class="settings-row-sub">kcal en reposo</div></div><div id="bmrVal" style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);">—</div></div>
+      <div class="settings-row">
+        <div style="flex:1;">
+          <div class="settings-row-title">Gasto energético basal</div>
+          <div class="settings-row-sub">Calorías que tu cuerpo necesita solo para funcionar en reposo total — sin moverse. Es la base para calcular cuánto quemás en cada sesión.</div>
+        </div>
+        <div style="text-align:right;margin-left:12px;">
+          <div id="bmrVal" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--accent);line-height:1;">—</div>
+          <div style="font-size:10px;color:var(--muted);">kcal/día</div>
+        </div>
+      </div>
       <div class="settings-row"><button onclick="saveProfile()" class="btn-p" style="font-size:16px;padding:12px;">GUARDAR PERFIL</button></div>
     </div>
-    <div class="sec-label">Peso corporal</div>
+
+    <div class="sec-label">Registro de hoy</div>
     <div class="settings-section">
-      <div style="padding:14px 16px 10px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <input class="input-f" type="number" inputmode="decimal" step="0.1" id="newWeightInput"
-            placeholder="78.5" style="flex:1;font-size:26px;font-weight:600;text-align:center;padding:14px 12px;">
-          <span style="font-size:16px;color:var(--muted);flex-shrink:0;">kg</span>
+      <div style="padding:14px 16px 12px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Peso corporal</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input class="input-f" type="number" inputmode="decimal" step="0.1" id="newWeightInput"
+                placeholder="kg" style="flex:1;font-size:20px;font-weight:600;text-align:center;padding:10px 12px;">
+              <button class="btn-p" onclick="logWeight()" style="padding:10px 16px;white-space:nowrap;">Registrar</button>
+            </div>
+          </div>
         </div>
-        <button class="btn-p" onclick="logWeight()" style="width:100%;margin-bottom:14px;">REGISTRAR PESO</button>
+        <button class="btn-g" style="width:100%;justify-content:center;" onclick="logWeightWithPhoto()">📸 Registrar peso + foto de progreso</button>
+      </div>
+    </div>
+
+    <div class="sec-label">Evolución de peso</div>
+    <div class="settings-section">
+      <div id="weightChartWrap" style="padding:14px 16px 4px;display:none;">
         <canvas id="weightChart" height="110"></canvas>
       </div>
       <div id="weightList"></div>
     </div>
+
     <div class="sec-label">Fotos de progreso</div>
     <div class="settings-section">
       <div class="settings-row" style="cursor:pointer;" onclick="openPhotos()">
-        <div><div class="settings-row-title">📸 Fotos de progreso</div><div class="settings-row-sub">Ver y agregar fotos · tocá para abrir</div></div>
+        <div><div class="settings-row-title">📸 Ver fotos</div><div class="settings-row-sub" id="photoCountSub">Galería de progreso</div></div>
         <div style="color:var(--muted);">›</div>
       </div>
       <div class="settings-row" style="cursor:pointer;" onclick="setupPin()">
@@ -722,6 +745,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
         <div style="color:var(--muted);">›</div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -1657,8 +1681,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.5.6';
+const APP_VERSION = '3.6.0';
 // Changelog:
+// 3.6.0 — Rediseño perfil, fix overscroll, peso+foto integrados
 // 3.5.6 — Fix texto botón agregar foto
 // 3.5.5 — Viewer con botón cerrar, picker cámara/galería
 // 3.5.4 — Fix PIN callback
@@ -4116,6 +4141,29 @@ function loadSettings() {
   if (vEl) vEl.textContent = APP_VERSION;
 }
 
+function logWeightWithPhoto() {
+  // First log weight if entered, then open photo picker
+  const input = document.getElementById('newWeightInput');
+  const kg = parseFloat(input.value);
+  if (kg && kg >= 20 && kg <= 300) {
+    // Save weight silently
+    const log = db.weightLog.get();
+    log.push({ ts: new Date().toISOString(), kg });
+    db.weightLog.set(log);
+    const p = db.profile.get();
+    p.peso = kg;
+    db.profile.set(p);
+    document.getElementById('cfgPeso').value = kg;
+    updateBMR();
+    input.value = '';
+    renderWeightSection();
+    if (navigator.vibrate) navigator.vibrate(40);
+    toast(`✓ ${kg}kg registrado · ahora agregá tu foto`);
+  }
+  // Open photo flow
+  setTimeout(() => triggerPhotoUpload(), 400);
+}
+
 function logWeight() {
   const input = document.getElementById('newWeightInput');
   const kg = parseFloat(input.value);
@@ -4141,12 +4189,14 @@ function logWeight() {
 
 function renderWeightSection() {
   const log = db.weightLog.get();
-
-  // Chart
+  const chartWrap = document.getElementById('weightChartWrap');
   const ctx = document.getElementById('weightChart');
-  if (ctx) {
-    if (window._weightChart) { try { window._weightChart.destroy(); } catch {} }
+
+  // Chart — solo si hay 2+ registros
+  if (window._weightChart) { try { window._weightChart.destroy(); } catch {} }
+  if (ctx && chartWrap) {
     if (log.length >= 2) {
+      chartWrap.style.display = 'block';
       const pts = log.slice(-20);
       const minV = Math.min(...pts.map(p=>p.kg)) - 1;
       const maxV = Math.max(...pts.map(p=>p.kg)) + 1;
@@ -4174,17 +4224,21 @@ function renderWeightSection() {
           }
         }
       });
-      ctx.style.display = 'block';
     } else {
-      ctx.style.display = log.length === 0 ? 'none' : 'block';
+      chartWrap.style.display = 'none';
     }
   }
 
-  // List — last 8 entries, newest first
+  // Actualizar contador de fotos
+  const photoCount = db.photos.get().length;
+  const photoSub = document.getElementById('photoCountSub');
+  if (photoSub) photoSub.textContent = photoCount > 0 ? `${photoCount} foto${photoCount!==1?'s':''} guardada${photoCount!==1?'s':''}` : 'Sin fotos todavía';
+
+  // List
   const listEl = document.getElementById('weightList');
   if (!listEl) return;
   if (!log.length) {
-    listEl.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:var(--muted);">Todavía no registraste ningún peso.</div>';
+    listEl.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:var(--muted);">Registrá tu primer peso para empezar el seguimiento.</div>';
     return;
   }
   const reversed = [...log].reverse().slice(0, 8);
