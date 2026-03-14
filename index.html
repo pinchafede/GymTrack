@@ -619,9 +619,25 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 <!-- Photo viewer overlay -->
 <div class="overlay" id="photoViewOverlay" onclick="if(event.target===this)closePhotoView()">
   <div style="position:relative;max-width:600px;margin:auto;padding:20px;">
+    <button onclick="closePhotoView()" style="position:absolute;top:28px;right:28px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;">✕</button>
     <img id="photoViewImg" style="width:100%;border-radius:var(--radius);display:block;">
     <div id="photoViewMeta" style="padding:12px 0;font-size:13px;color:var(--muted);text-align:center;"></div>
-    <button class="btn-g danger" style="width:100%;justify-content:center;" onclick="deleteCurrentPhoto()">🗑 Eliminar foto</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-g" style="flex:1;justify-content:center;" onclick="closePhotoView()">‹ Volver</button>
+      <button class="btn-g danger" style="flex:1;justify-content:center;" onclick="deleteCurrentPhoto()">🗑 Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Photo source picker sheet -->
+<div class="overlay" id="photoPickerOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet">
+    <div class="sheet-drag"></div>
+    <div style="padding:20px 20px 32px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;margin-bottom:16px;">AGREGAR FOTO</div>
+      <button class="btn-p" style="width:100%;margin-bottom:10px;" onclick="pickPhotoSource('camera')">📷 Tomar foto con la cámara</button>
+      <button class="btn-g" style="width:100%;justify-content:center;" onclick="pickPhotoSource('gallery')">🖼 Elegir de la galería</button>
+    </div>
   </div>
 </div>
 
@@ -981,7 +997,8 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 </div>
 
 <!-- Photo file input — outside any screen to avoid display:none issues on mobile -->
-<input type="file" id="photoInput" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" style="display:none;position:fixed;top:-100px;" onchange="handlePhotoUpload(this)">
+<input type="file" id="photoInputGallery" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" style="display:none;position:fixed;top:-100px;" onchange="handlePhotoUpload(this)">
+<input type="file" id="photoInputCamera" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" capture="environment" style="display:none;position:fixed;top:-100px;" onchange="handlePhotoUpload(this)">
 <div class="toast" id="toastEl"></div>
 
 <script>
@@ -1117,10 +1134,16 @@ function processPinInput() {
 }
 
 function triggerPhotoUpload() {
-  const input = document.getElementById('photoInput');
+  document.getElementById('photoPickerOverlay').classList.add('open');
+}
+
+function pickPhotoSource(source) {
+  document.getElementById('photoPickerOverlay').classList.remove('open');
+  const inputId = source === 'camera' ? 'photoInputCamera' : 'photoInputGallery';
+  const input = document.getElementById(inputId);
   if (!input) return;
-  input.value = ''; // reset so same file can be selected again
-  input.click();
+  input.value = '';
+  setTimeout(() => input.click(), 100); // small delay after closing overlay
 }
 
 function handlePhotoUpload(input) {
@@ -1634,8 +1657,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.5.4';
+const APP_VERSION = '3.5.5';
 // Changelog:
+// 3.5.5 — Viewer con botón cerrar, picker cámara/galería
 // 3.5.4 — Fix PIN callback
 // 3.5.3 — Fotos solo desde galería
 // 3.5.2 — Fix subida fotos en móvil
