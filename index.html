@@ -349,6 +349,27 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .weight-entry-delta.down{color:var(--accent);background:var(--accent-dim);}
 .weight-entry-delta.same{color:var(--muted);background:var(--surface2);}
 
+/* Tempo done state */
+.tempo-block.done-block { border-color:rgba(212,245,60,.3); }
+.tempo-done-btn { display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;border-top:1px solid var(--border); }
+.tempo-done-circle { width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;flex-shrink:0; }
+.tempo-done-circle.done { background:var(--accent);border-color:var(--accent);color:#000; }
+
+/* Save bar — not sticky, just at bottom of scroll */
+.save-bar-wrap { padding:16px 16px 8px; }
+
+/* RPE sheet */
+.rpe-sheet-overlay { position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .2s; }
+.rpe-sheet-overlay.open { opacity:1;pointer-events:all; }
+.rpe-sheet { background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:20px 20px 36px;width:100%; }
+.rpe-sheet-title { font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:14px;text-align:center; }
+.rpe-sheet-btns { display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px; }
+
+/* Timer countdown for timed exercises */
+.timed-countdown { display:flex;flex-direction:column;align-items:center;padding:16px 0 8px;gap:10px; }
+.timed-display { font-family:'Bebas Neue',sans-serif;font-size:64px;color:var(--accent);line-height:1;letter-spacing:2px; }
+.timed-controls { display:flex;gap:10px;width:100%; }
+
 /* PIN */
 .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:var(--surface2);transition:all .15s;}
 .pin-dot.filled{background:var(--accent);border-color:var(--accent);}
@@ -475,7 +496,13 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
              color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;
              resize:none;outline:none;line-height:1.5;"></textarea>
   </div>
-  <div class="save-bar"><button class="btn-p" onclick="saveSession()">GUARDAR SESIÓN</button></div>
+  <div class="save-bar-wrap">
+    <textarea id="sessNota" rows="2" placeholder="¿Cómo te sentiste? Notas de la sesión..."
+      style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
+             color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;
+             resize:none;outline:none;line-height:1.5;margin-bottom:10px;"></textarea>
+    <button class="btn-p" onclick="saveSession()" style="width:100%;">GUARDAR SESIÓN</button>
+  </div>
 </div>
 
 <!-- ═══ SPORT REGISTER ═══ -->
@@ -794,6 +821,10 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     <div class="sec-label">Entrenamiento</div>
     <div class="settings-section">
       <div class="settings-row">
+        <div><div class="settings-row-title">Sonido al terminar descanso</div><div class="settings-row-sub">Beep en auriculares cuando terminá el timer</div></div>
+        <div class="toggle-track" id="soundTrack" onclick="toggleSound()"></div>
+      </div>
+      <div class="settings-row">
         <div><div class="settings-row-title">Descanso entre series</div><div class="settings-row-sub">Segundos de pausa</div></div>
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="stepper" style="gap:0;">
@@ -868,6 +899,21 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 </div>
 
 <!-- ═══ NAV ═══ -->
+<!-- RPE SHEET OVERLAY -->
+<div class="rpe-sheet-overlay" id="rpeOverlay">
+  <div class="rpe-sheet">
+    <div class="rpe-sheet-title" id="rpeSheetTitle">¿CÓMO ESTUVO EL EJERCICIO?</div>
+    <div class="rpe-sheet-btns">
+      <button class="rpe-btn r1" onclick="selectRpeSheet(0)">😴<br>Fácil</button>
+      <button class="rpe-btn r2" onclick="selectRpeSheet(1)">💪<br>Normal</button>
+      <button class="rpe-btn r3" onclick="selectRpeSheet(2)">😤<br>Costó</button>
+      <button class="rpe-btn r4" onclick="selectRpeSheet(3)">🔥<br>Límite</button>
+      <button class="rpe-btn r5" onclick="selectRpeSheet(4)">💀<br>Fallo</button>
+    </div>
+    <button class="btn-g" style="width:100%;justify-content:center;" onclick="selectRpeSheet(null)">Saltar →</button>
+  </div>
+</div>
+
 <!-- REST TIMER BAR -->
 <div class="rest-bar" id="restBar">
   <div style="font-size:12px;color:var(--accent);font-weight:600;white-space:nowrap;">Descanso</div>
@@ -941,13 +987,19 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <div><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Series</label>
           <input id="eeS" class="input-f" type="number" inputmode="numeric" value="4" min="1" max="10"></div>
-        <div><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Reps objetivo</label>
+        <div><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;" id="eeRLabel">Reps objetivo</label>
           <input id="eeR" class="input-f" type="number" inputmode="numeric" value="10" min="1" max="100"></div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);">
         <div><div style="font-size:14px;">¿Lleva peso (kg)?</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">Activá para registrar kg por serie</div></div>
         <div id="eeKgToggle" onclick="toggleKg()" style="width:44px;height:26px;border-radius:13px;background:var(--accent);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;">
           <div style="position:absolute;width:20px;height:20px;border-radius:50%;background:#000;top:3px;right:3px;transition:right .2s;"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);margin-bottom:14px;">
+        <div><div style="font-size:14px;">¿Es por tiempo?</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">Ej: plancha, puente (segundos)</div></div>
+        <div id="eeTimedToggle" onclick="toggleTimed()" style="width:44px;height:26px;border-radius:13px;background:var(--surface2);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;border:1.5px solid var(--border);">
+          <div style="position:absolute;width:20px;height:20px;border-radius:50%;background:#888;top:2px;left:2px;transition:left .2s;"></div>
         </div>
       </div>
       <div><label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nota (opcional)</label>
@@ -1694,9 +1746,10 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.7.4';
+const APP_VERSION = '3.8.0';
 // Changelog:
-// 3.7.4 — Fix Drive scope appDataFolder consistente entre dispositivos
+// 3.8.0 — Workout: RPE sheet, timed exercises, warmup done, extra a rutina, sound timer
+// 3.7.4 — Fix Drive scope appDataFolder
 // 3.7.3 — Restaurar desde Drive en onboarding
 // 3.7.2 — Fix suplementos fecha local, limpieza keys viejas
 // 3.7.1 — Fix fechas locales (no UTC)
@@ -2285,11 +2338,13 @@ function editExInDay(i) {
   editingExIdx = i;
   pendingExName = ex.name;
   eeKgOn = ex.kg;
+  eeTimedOn = !!ex.timed;
   document.getElementById('exEditName').textContent = ex.name;
   document.getElementById('eeS').value = ex.series;
   document.getElementById('eeR').value = ex.reps;
   document.getElementById('eeNota').value = ex.nota || '';
   updateKgToggleUI();
+  updateTimedToggleUI();
   document.getElementById('exEditOverlay').classList.add('open');
 }
 
@@ -2319,7 +2374,7 @@ function saveExEdit() {
   const s = parseInt(document.getElementById('eeS').value) || 4;
   const r = parseInt(document.getElementById('eeR').value) || 10;
   const nota = document.getElementById('eeNota').value.trim();
-  const ex = { name: pendingExName, series: s, reps: r, kg: eeKgOn, nota };
+  const ex = { name: pendingExName, series: s, reps: r, kg: eeKgOn && !eeTimedOn, timed: eeTimedOn, nota };
   if (editingExIdx !== null) {
     editingDayExercises[editingExIdx] = ex;
   } else {
@@ -2818,11 +2873,11 @@ function renderExList(di) {
   let html = '';
 
   // Warmup
-  html += `<div class="tempo-block warm">
+  html += `<div class="tempo-block warm" id="warmBlock">
     <div class="tempo-header" onclick="toggleTempo('warm')">
       <span style="font-size:16px;">🔥</span>
       <div style="flex:1;"><div class="tempo-title" style="color:#8fcc44;">Calentamiento</div><div style="font-size:11px;color:var(--muted);">Cinta · tocá para registrar</div></div>
-      <span id="warmChev" style="color:var(--muted);font-size:16px;transition:transform .2s">›</span>
+      <div id="warmDoneCircle" class="serie-check" style="margin-left:0;" onclick="event.stopPropagation();toggleTempoDone('warm')">○</div>
     </div>
     <div class="tempo-body" id="warmBody">
       <div class="tempo-grid">
@@ -2866,6 +2921,14 @@ function renderExList(di) {
             const perSerieKg = lastSess?.series?.[si]?.kg || lastKg || null;
             const perSerieReps = lastSess?.series?.[si]?.reps || ex.reps;
             const hasKg = perSerieKg && perSerieKg > 0;
+            if (ex.timed) {
+              return `<div class="serie-row" id="sr${ei}_${si}">
+                <div class="serie-num">${si+1}</div>
+                <div style="flex:1;font-size:13px;color:var(--muted);">${perSerieReps}s</div>
+                <button class="btn-g" id="timedBtn${ei}_${si}" onclick="startTimedSerie(${ei},${si},${perSerieReps},${ex.series})" style="flex:1;justify-content:center;">▶ Iniciar</button>
+                <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
+              </div>`;
+            }
             return `<div class="serie-row" id="sr${ei}_${si}">
               <div class="serie-num">${si+1}</div>
               <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
@@ -2904,14 +2967,15 @@ function renderExList(di) {
         <div class="stepper"><button class="step-btn" onclick="stepVal('extraR',-1)">−</button><div class="step-val" id="extraR">10</div><button class="step-btn" onclick="stepVal('extraR',1)">+</button></div>
       </div>
     </div>
+    <button class="btn-g" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="addExtraToRoutine()">＋ Agregar a mi rutina</button>
   </div>`;
 
   // Cooldown
-  html += `<div class="tempo-block cool" style="margin-bottom:0;">
+  html += `<div class="tempo-block cool" id="coolBlock" style="margin-bottom:0;">
     <div class="tempo-header" onclick="toggleTempo('cool')">
       <span style="font-size:16px;">❄️</span>
       <div style="flex:1;"><div class="tempo-title" style="color:#44aacc;">Vuelta a la calma</div><div style="font-size:11px;color:var(--muted);">Estiramiento · tocá para registrar</div></div>
-      <span id="coolChev" style="color:var(--muted);font-size:16px;transition:transform .2s">›</span>
+      <div id="coolDoneCircle" class="serie-check" style="margin-left:0;" onclick="event.stopPropagation();toggleTempoDone('cool')">○</div>
     </div>
     <div class="tempo-body" id="coolBody">
       <div class="tempo-grid">
@@ -2932,9 +2996,142 @@ function renderExList(di) {
 }
 function toggleTempo(id) {
   const body = document.getElementById(`${id}Body`);
-  const chev = document.getElementById(`${id}Chev`);
   const open = body.classList.toggle('open');
-  chev.style.transform = open ? 'rotate(90deg)' : '';
+}
+
+function toggleTempoDone(id) {
+  const circle = document.getElementById(`${id}DoneCircle`);
+  const block  = document.getElementById(`${id}Block`);
+  const isDone = circle.classList.toggle('done');
+  circle.textContent = isDone ? '✓' : '○';
+  block.classList.toggle('done-block', isDone);
+  if (isDone && navigator.vibrate) navigator.vibrate(40);
+}
+
+// ─── RPE SHEET ────────────────────────────────────────────────────────────────
+let rpeSheetEi = null;
+let rpeSheetCallback = null;
+
+function showRpeSheet(ei, callback) {
+  rpeSheetEi = ei;
+  rpeSheetCallback = callback;
+  // Reset button states
+  document.querySelectorAll('#rpeOverlay .rpe-btn').forEach(b => b.classList.remove('active'));
+  if (currentRpe[ei] !== undefined) {
+    document.querySelectorAll('#rpeOverlay .rpe-btn')[currentRpe[ei]]?.classList.add('active');
+  }
+  document.getElementById('rpeOverlay').classList.add('open');
+}
+
+function selectRpeSheet(val) {
+  document.getElementById('rpeOverlay').classList.remove('open');
+  if (val !== null && rpeSheetEi !== null) {
+    setRpe(rpeSheetEi, val);
+  }
+  if (rpeSheetCallback) rpeSheetCallback();
+  rpeSheetEi = null;
+  rpeSheetCallback = null;
+}
+
+// ─── TIMED SERIES ─────────────────────────────────────────────────────────────
+let timedInterval = null;
+
+function startTimedSerie(ei, si, seconds, totalSeries) {
+  if (timedInterval) { clearInterval(timedInterval); timedInterval = null; }
+  const btn = document.getElementById(`timedBtn${ei}_${si}`);
+  const check = document.getElementById(`sc${ei}_${si}`);
+  if (!btn) return;
+
+  let remaining = seconds;
+  btn.textContent = `⏱ ${remaining}s`;
+  btn.style.color = 'var(--accent)';
+  btn.onclick = () => { clearInterval(timedInterval); timedInterval = null; btn.textContent = '▶ Iniciar'; btn.style.color = ''; btn.onclick = () => startTimedSerie(ei, si, seconds, totalSeries); };
+
+  playBeep(440, 0.1); // start beep
+
+  timedInterval = setInterval(() => {
+    remaining--;
+    btn.textContent = `⏱ ${remaining}s`;
+    if (remaining <= 0) {
+      clearInterval(timedInterval); timedInterval = null;
+      btn.textContent = '✓ Listo';
+      btn.style.color = 'var(--accent)';
+      playBeep(880, 0.3);
+      if (navigator.vibrate) navigator.vibrate([100,50,100]);
+      // Auto-mark as done
+      toggleSerie(ei, si, totalSeries);
+    }
+  }, 1000);
+}
+
+// ─── AUDIO ─────────────────────────────────────────────────────────────────────
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playBeep(freq = 880, duration = 0.2) {
+  const cfg = db.restCfg.get();
+  if (cfg.soundOff) return;
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
+// ─── TIMED TOGGLE in editor ───────────────────────────────────────────────────
+let eeTimedOn = false;
+
+function toggleTimed() {
+  eeTimedOn = !eeTimedOn;
+  updateTimedToggleUI();
+}
+
+function updateTimedToggleUI() {
+  const toggle = document.getElementById('eeTimedToggle');
+  if (!toggle) return;
+  const dot = toggle.querySelector('div');
+  const label = document.getElementById('eeRLabel');
+  if (eeTimedOn) {
+    toggle.style.background = 'var(--accent)';
+    toggle.style.borderColor = 'var(--accent)';
+    if (dot) { dot.style.left = 'calc(100% - 23px)'; dot.style.background = '#000'; }
+    if (label) label.textContent = 'Segundos';
+  } else {
+    toggle.style.background = 'var(--surface2)';
+    toggle.style.borderColor = 'var(--border)';
+    if (dot) { dot.style.left = '2px'; dot.style.background = '#888'; }
+    if (label) label.textContent = 'Reps objetivo';
+  }
+}
+
+// ─── ADD EXTRA TO ROUTINE ─────────────────────────────────────────────────────
+function addExtraToRoutine() {
+  const name = document.getElementById('extraName')?.value.trim();
+  if (!name) { toast('Ingresá un nombre para el ejercicio'); return; }
+  const series = parseInt(document.getElementById('extraS')?.textContent) || 3;
+  const reps   = parseInt(document.getElementById('extraR')?.textContent) || 10;
+  const routine = db.routine.get();
+  if (!routine?.days?.[currentDayIdx]) return;
+  routine.days[currentDayIdx].exercises.push({ name, series, reps, kg: false, nota: '' });
+  db.routine.set(routine);
+  // Clear extra fields
+  document.getElementById('extraName').value = '';
+  document.getElementById('extraS').textContent = '3';
+  document.getElementById('extraR').textContent = '10';
+  toast(`✓ "${name}" agregado a la rutina`);
+  if (navigator.vibrate) navigator.vibrate(40);
 }
 
 function toggleEx(ei) {
@@ -2952,10 +3149,8 @@ function toggleSerie(ei, si, totalSeries) {
   btn.textContent = isDone ? '✓' : '○';
   row.classList.toggle('done-row', isDone);
 
-  // Vibrate on completion
   if (isDone && navigator.vibrate) navigator.vibrate(40);
 
-  // Count done series for this exercise
   const routine = db.routine.get();
   const day = routine.days[currentDayIdx];
   const ex = day?.exercises?.[ei];
@@ -2967,22 +3162,36 @@ function toggleSerie(ei, si, totalSeries) {
   const doneCount = doneSeries.filter(Boolean).length;
 
   if (isDone) {
-    // All series done → open next exercise
     if (doneCount === ex.series) {
-      const nextEi = ei + 1;
-      const nextBody = document.getElementById(`exBody${nextEi}`);
-      if (nextBody && !nextBody.classList.contains('open')) {
-        setTimeout(() => {
-          document.getElementById(`exChev${nextEi}`)?.classList.add('open');
-          nextBody.classList.add('open');
-          nextBody.scrollIntoView({behavior:'smooth', block:'start'});
-        }, 300);
-      }
+      // All series done → show RPE sheet, then close this ex + open next
+      showRpeSheet(ei, () => {
+        // Close current exercise
+        const curBody = document.getElementById(`exBody${ei}`);
+        const curChev = document.getElementById(`exChev${ei}`);
+        if (curBody) curBody.classList.remove('open');
+        if (curChev) curChev.classList.remove('open');
+
+        // Open next exercise
+        const nextEi = ei + 1;
+        const nextBody = document.getElementById(`exBody${nextEi}`);
+        if (nextBody) {
+          setTimeout(() => {
+            document.getElementById(`exChev${nextEi}`)?.classList.add('open');
+            nextBody.classList.add('open');
+            nextBody.scrollIntoView({behavior:'smooth', block:'start'});
+          }, 150);
+        }
+      });
+      // Rest timer for end of exercise
+      const rc = db.restCfg.get();
+      startRest(rc.exercise || 90);
+    } else {
+      // Mid-exercise: rest between series, no RPE yet
+      const rc = db.restCfg.get();
+      startRest(rc.series || 60);
     }
-    // Start rest timer after every completed serie
-    const rc = db.restCfg.get();
-    startRest(doneCount === ex.series ? (rc.exercise||90) : (rc.series||60));
   } else {
+    // Unmarking a serie → stop rest timer
     stopRest();
   }
 }
@@ -3016,7 +3225,8 @@ function startRest(seconds) {
     if (restRemaining <= 0) {
       stopRest();
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      toast('¡A la siguiente serie! 💪');
+      playBeep(660, 0.15);
+      setTimeout(() => playBeep(880, 0.25), 200);
     }
   }, 1000);
 }
@@ -4250,6 +4460,17 @@ function fireNotifIfNeeded(momento) {
   });
 }
 
+function toggleSound() {
+  const cfg = db.restCfg.get();
+  cfg.soundOff = !cfg.soundOff;
+  db.restCfg.set(cfg);
+  const track = document.getElementById('soundTrack');
+  if (track) track.classList.toggle('on', !cfg.soundOff);
+  toast(cfg.soundOff ? 'Sonido desactivado' : 'Sonido activado');
+  // Init audio context on user gesture
+  if (!cfg.soundOff) getAudioCtx();
+}
+
 function adjRest(type, delta) {
   const rc = db.restCfg.get();
   const key = type === 'series' ? 'series' : 'exercise';
@@ -4288,6 +4509,10 @@ function loadSettings() {
   renderWeightSection();
   loadNotifCfg();
   updatePinSettingsTitle();
+  // Load sound toggle state
+  const rc2 = db.restCfg.get();
+  const soundTrack = document.getElementById('soundTrack');
+  if (soundTrack) soundTrack.classList.toggle('on', !rc2.soundOff);
   // Show current version
   const vEl = document.getElementById('appVersionLabel');
   if (vEl) vEl.textContent = APP_VERSION;
