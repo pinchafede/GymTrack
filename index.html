@@ -150,7 +150,8 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .tempo-body.open{display:block}
 .tempo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .tempo-field label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
-.ex-card{margin:10px 16px 0;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;transition:opacity .2s,border-style .2s}
+.ex-card{margin:10px 16px 0;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;transition:opacity .2s,border-style .2s,border-color .3s,background .3s;}
+.ex-card.ex-completed{border-color:rgba(212,245,60,.22);background:rgba(212,245,60,.025);}
 .ex-card.skipped{opacity:.4;border-style:dashed}
 .ex-header{padding:13px 14px;display:flex;align-items:flex-start;cursor:pointer;transition:background .1s}
 .ex-header:active{background:var(--surface2)}
@@ -490,12 +491,6 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     <button class="btn-g" onclick="openEditDay(currentDayIdx)">✏️</button>
   </div>
   <div id="exList"></div>
-  <div style="padding:10px 16px 0;background:var(--bg);">
-    <textarea id="sessNota" rows="2" placeholder="¿Cómo te sentiste? Notas de la sesión..."
-      style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
-             color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;
-             resize:none;outline:none;line-height:1.5;"></textarea>
-  </div>
   <div class="save-bar-wrap">
     <textarea id="sessNota" rows="2" placeholder="¿Cómo te sentiste? Notas de la sesión..."
       style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
@@ -1746,8 +1741,10 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.8.0';
+const APP_VERSION = '3.8.2';
 // Changelog:
+// 3.8.2 — Fix scroll dinámico al siguiente ejercicio
+// 3.8.1 — Ejercicio completado verde, RPE inline quitado, notas fix, extra live DOM
 // 3.8.0 — Workout: RPE sheet, timed exercises, warmup done, extra a rutina, sound timer
 // 3.7.4 — Fix Drive scope appDataFolder
 // 3.7.3 — Restaurar desde Drive en onboarding
@@ -2938,14 +2935,7 @@ function renderExList(di) {
             </div>`;
           }).join('')}
         </div>
-        <div class="rpe-row" id="rpeRow${ei}">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;align-self:center;flex-shrink:0;padding-right:4px;">Esfuerzo</div>
-          <button class="rpe-btn r1" id="rpe${ei}_0" onclick="setRpe(${ei},0)">😴<br>Fácil</button>
-          <button class="rpe-btn r2" id="rpe${ei}_1" onclick="setRpe(${ei},1)">💪<br>Normal</button>
-          <button class="rpe-btn r3" id="rpe${ei}_2" onclick="setRpe(${ei},2)">😤<br>Costó</button>
-          <button class="rpe-btn r4" id="rpe${ei}_3" onclick="setRpe(${ei},3)">🔥<br>Límite</button>
-          <button class="rpe-btn r5" id="rpe${ei}_4" onclick="setRpe(${ei},4)">💀<br>Fallo</button>
-        </div>
+        <div id="rpeBadge${ei}" style="padding:0 0 4px;"></div>
       </div>
     </div>`;
   });
@@ -3028,9 +3018,14 @@ function selectRpeSheet(val) {
   if (val !== null && rpeSheetEi !== null) {
     setRpe(rpeSheetEi, val);
   }
-  if (rpeSheetCallback) rpeSheetCallback();
+  const cb = rpeSheetCallback;
+  const savedEi = rpeSheetEi;
   rpeSheetEi = null;
   rpeSheetCallback = null;
+  if (cb) cb(val);
+  // Start rest timer AFTER sheet closes and callback runs
+  const rc = db.restCfg.get();
+  startRest(rc.exercise || 90);
 }
 
 // ─── TIMED SERIES ─────────────────────────────────────────────────────────────
@@ -3124,13 +3119,55 @@ function addExtraToRoutine() {
   const reps   = parseInt(document.getElementById('extraR')?.textContent) || 10;
   const routine = db.routine.get();
   if (!routine?.days?.[currentDayIdx]) return;
-  routine.days[currentDayIdx].exercises.push({ name, series, reps, kg: false, nota: '' });
+
+  const newEx = { name, series, reps, kg: false, timed: false, nota: '' };
+  routine.days[currentDayIdx].exercises.push(newEx);
   db.routine.set(routine);
+
+  // Insert the new exercise card into the DOM without full reload
+  const newEi = routine.days[currentDayIdx].exercises.length - 1;
+  const container = document.getElementById('exList');
+  const extraSection = container.querySelector('.extra-section');
+  if (extraSection) {
+    const div = document.createElement('div');
+    div.className = 'ex-card';
+    div.id = `exCard${newEi}`;
+    div.innerHTML = `
+      <div class="ex-header" onclick="toggleEx(${newEi})">
+        <div style="flex:1;">
+          <div class="ex-num">EJERCICIO ${newEi+1}</div>
+          <div class="ex-name">${name}</div>
+          <div style="font-size:12px;color:var(--muted);padding:4px 0 0;">Primera vez · ingresá el peso con el que arrancás 💪</div>
+        </div>
+        <div class="ex-chev" id="exChev${newEi}">›</div>
+      </div>
+      <div class="ex-actions">
+        <button class="btn-g" onclick="openInfo(${newEi},'${name.replace(/'/g,"\'")}')">💡</button>
+        <button class="btn-g" onclick="skipEx(${newEi})" id="skipBtn${newEi}">⏭ Saltear</button>
+        <button class="btn-g danger" onclick="hideEx(${newEi})" id="hideBtn${newEi}">🚫 Ocultar</button>
+      </div>
+      <div class="ex-body" id="exBody${newEi}">
+        <div id="rpeBadge${newEi}"></div>
+        <div id="serieRows${newEi}">
+          ${Array.from({length:series},(_,si)=>`
+            <div class="serie-row" id="sr${newEi}_${si}">
+              <div class="serie-num">${si+1}</div>
+              <input class="serie-input filled" type="number" inputmode="decimal" id="r${newEi}_${si}" value="${reps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
+              <div class="serie-sep">reps</div>
+              <div class="serie-check" id="sc${newEi}_${si}" onclick="toggleSerie(${newEi},${si},${series})">○</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    container.insertBefore(div, extraSection);
+    // Attach swipe handlers
+    Array.from({length:series},(_,si) => initSerieSwipe(newEi, si, series));
+  }
+
   // Clear extra fields
   document.getElementById('extraName').value = '';
   document.getElementById('extraS').textContent = '3';
   document.getElementById('extraR').textContent = '10';
-  toast(`✓ "${name}" agregado a la rutina`);
+  toast(`✓ "${name}" agregado`);
   if (navigator.vibrate) navigator.vibrate(40);
 }
 
@@ -3164,7 +3201,23 @@ function toggleSerie(ei, si, totalSeries) {
   if (isDone) {
     if (doneCount === ex.series) {
       // All series done → show RPE sheet, then close this ex + open next
-      showRpeSheet(ei, () => {
+      showRpeSheet(ei, (rpeVal) => {
+        // Mark exercise card as completed (subtle green)
+        const card = document.getElementById(`exCard${ei}`);
+        if (card) card.classList.add('ex-completed');
+
+        // Hide actions (💡 saltear ocultar) — no longer needed
+        const actions = card?.querySelector('.ex-actions');
+        if (actions) actions.style.display = 'none';
+
+        // Show RPE badge in header if value selected
+        const rpeLabels = ['Fácil','Normal','Costó','Límite','Fallo'];
+        const rpeEmoji  = ['😴','💪','😤','🔥','💀'];
+        const badge = document.getElementById(`rpeBadge${ei}`);
+        if (badge && rpeVal !== null && rpeVal !== undefined) {
+          badge.innerHTML = `<span style="font-size:11px;color:var(--muted);padding:0 0 4px;display:block;">${rpeEmoji[rpeVal]} Esfuerzo: ${rpeLabels[rpeVal]}</span>`;
+        }
+
         // Close current exercise
         const curBody = document.getElementById(`exBody${ei}`);
         const curChev = document.getElementById(`exChev${ei}`);
@@ -3173,25 +3226,38 @@ function toggleSerie(ei, si, totalSeries) {
 
         // Open next exercise
         const nextEi = ei + 1;
-        const nextBody = document.getElementById(`exBody${nextEi}`);
-        if (nextBody) {
+        const nextCard = document.getElementById(`exCard${nextEi}`);
+        if (nextCard) {
           setTimeout(() => {
-            document.getElementById(`exChev${nextEi}`)?.classList.add('open');
-            nextBody.classList.add('open');
-            nextBody.scrollIntoView({behavior:'smooth', block:'start'});
+            const nextBody = document.getElementById(`exBody${nextEi}`);
+            const nextChev = document.getElementById(`exChev${nextEi}`);
+            if (nextBody) nextBody.classList.add('open');
+            if (nextChev) nextChev.classList.add('open');
+
+            // Scroll to the card accounting for sticky header height
+            const screen = document.getElementById('s-workout');
+            const headerEl = screen?.querySelector('.workout-header');
+            const headerH = headerEl ? headerEl.offsetHeight : 80;
+            const cardTop = nextCard.getBoundingClientRect().top;
+            const scrollEl = screen || window;
+            const offset = cardTop - headerH - 12; // 12px breathing room
+            if (screen) {
+              screen.scrollBy({ top: offset, behavior: 'smooth' });
+            } else {
+              window.scrollBy({ top: offset, behavior: 'smooth' });
+            }
           }, 150);
         }
       });
-      // Rest timer for end of exercise
-      const rc = db.restCfg.get();
-      startRest(rc.exercise || 90);
+      // Rest timer starts AFTER RPE sheet closes (handled inside selectRpeSheet)
+      // Don't start it here to avoid showing during RPE selection
     } else {
-      // Mid-exercise: rest between series, no RPE yet
+      // Mid-exercise: rest between series
       const rc = db.restCfg.get();
       startRest(rc.series || 60);
     }
   } else {
-    // Unmarking a serie → stop rest timer
+    // Unmarking a serie → stop rest timer immediately
     stopRest();
   }
 }
