@@ -1681,8 +1681,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.6.1';
+const APP_VERSION = '3.6.2';
 // Changelog:
+// 3.6.2 — Fix detección cambio de día en saludo home
 // 3.6.1 — Fix tamaño input peso
 // 3.6.0 — Rediseño perfil, fix overscroll, peso+foto integrados
 // 3.5.6 — Fix texto botón agregar foto
@@ -2375,8 +2376,16 @@ function renderHome() {
   // Context-aware subtitle
   const allActivity = [...sessions.map(s=>s.ts), ...sportLogs.map(s=>s.ts)].sort().reverse();
   const lastActivityTs = allActivity[0];
-  const daysSinceLast = lastActivityTs
-    ? Math.floor((Date.now() - new Date(lastActivityTs)) / 86400000) : null;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const lastDateStr = lastActivityTs ? new Date(lastActivityTs).toISOString().slice(0, 10) : null;
+
+  // Compare calendar dates, not hours elapsed
+  let daysSinceLast = null;
+  if (lastDateStr) {
+    const today = new Date(todayStr);
+    const last  = new Date(lastDateStr);
+    daysSinceLast = Math.round((today - last) / 86400000);
+  }
 
   let subtitle;
   if (!sessions.length && !sportLogs.length) {
