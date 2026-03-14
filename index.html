@@ -1458,7 +1458,7 @@ function roundRect(ctx, x, y, w, h, r) {
 // GOOGLE DRIVE SYNC
 // ═══════════════════════════════════════════════
 const GDRIVE_CLIENT_ID = '919267412270-7qmda03ttdp7lqdgq9u2oe642tjn7st4.apps.googleusercontent.com';
-const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const GDRIVE_FILE_NAME = 'gymtrack-sync.json';
 const AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
@@ -1580,7 +1580,7 @@ async function gdriveFindFile() {
   const cfg = db.syncCfg.get();
   if (cfg.fileId) return cfg.fileId;
   const res = await gdriveRequest('GET',
-    `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILE_NAME}'&fields=files(id)`
+    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${GDRIVE_FILE_NAME}'&fields=files(id)`
   );
   const data = await res.json();
   const fileId = data.files?.[0]?.id || null;
@@ -1620,9 +1620,10 @@ async function gdriveUpload(silent = false) {
         blob, false
       );
     } else {
-      // Create new file in Drive root
+      // Create new file in appDataFolder (consistent across devices/sessions)
       const meta = new Blob([JSON.stringify({
-        name: GDRIVE_FILE_NAME
+        name: GDRIVE_FILE_NAME,
+        parents: ['appDataFolder']
       })], {type: 'application/json'});
       const form = new FormData();
       form.append('metadata', meta);
@@ -1693,8 +1694,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.7.3';
+const APP_VERSION = '3.7.4';
 // Changelog:
+// 3.7.4 — Fix Drive scope appDataFolder consistente entre dispositivos
 // 3.7.3 — Restaurar desde Drive en onboarding
 // 3.7.2 — Fix suplementos fecha local, limpieza keys viejas
 // 3.7.1 — Fix fechas locales (no UTC)
