@@ -347,6 +347,16 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .weight-entry-delta.up{color:#f08080;background:rgba(240,128,128,.1);}
 .weight-entry-delta.down{color:var(--accent);background:var(--accent-dim);}
 .weight-entry-delta.same{color:var(--muted);background:var(--surface2);}
+
+/* RPE */
+.rpe-row{display:flex;gap:6px;padding:10px 0 6px;border-top:1px solid var(--border);margin-top:4px;}
+.rpe-btn{flex:1;padding:7px 2px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface2);font-size:10px;font-weight:600;text-align:center;cursor:pointer;transition:all .15s;color:var(--muted);line-height:1.3;}
+.rpe-btn.active{border-color:currentColor;}
+.rpe-btn.r1{color:#3cf5a0;}.rpe-btn.r1.active{background:rgba(60,245,160,.15);}
+.rpe-btn.r2{color:#8fcc44;}.rpe-btn.r2.active{background:rgba(143,204,68,.15);}
+.rpe-btn.r3{color:#f5a63c;}.rpe-btn.r3.active{background:rgba(245,166,60,.15);}
+.rpe-btn.r4{color:#f57a3c;}.rpe-btn.r4.active{background:rgba(245,122,60,.15);}
+.rpe-btn.r5{color:#f53c3c;}.rpe-btn.r5.active{background:rgba(245,60,60,.15);}
 </style>
 </head>
 <body>
@@ -825,8 +835,9 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '3.0.0';
 // Changelog:
+// 3.0.0 — RPE por ejercicio + análisis en Coach
 // 2.9.0 — Notas por sesión + análisis en Coach
 // 2.8.0 — Seguimiento de peso corporal con gráfico
 // 2.7.0 — Botón de actualización forzada, SW network-first
@@ -1709,6 +1720,8 @@ let pendingSession = null;
 let infoCache = {};
 
 function startWorkout(di) {
+  // Reset RPE for new workout
+  Object.keys(currentRpe).forEach(k => delete currentRpe[k]);
   const routine = db.routine.get();
   if (!routine?.days?.[di]) return;
   currentDayIdx = di;
@@ -1732,6 +1745,19 @@ function startWorkout(di) {
 
   renderExList(di);
   navTo('workout');
+}
+
+// RPE values stored per exercise during workout
+const currentRpe = {};
+
+function setRpe(ei, val) {
+  currentRpe[ei] = val;
+  // Update button styles
+  for (let i = 0; i < 5; i++) {
+    const btn = document.getElementById(`rpe${ei}_${i}`);
+    if (btn) btn.classList.toggle('active', i === val);
+  }
+  if (navigator.vibrate) navigator.vibrate(20);
 }
 
 function buildSparkline(exSessions, ei) {
@@ -1848,6 +1874,14 @@ function renderExList(di) {
               <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
             </div>`;
           }).join('')}
+        </div>
+        <div class="rpe-row" id="rpeRow${ei}">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;align-self:center;flex-shrink:0;padding-right:4px;">Esfuerzo</div>
+          <button class="rpe-btn r1" id="rpe${ei}_0" onclick="setRpe(${ei},0)">😴<br>Fácil</button>
+          <button class="rpe-btn r2" id="rpe${ei}_1" onclick="setRpe(${ei},1)">💪<br>Normal</button>
+          <button class="rpe-btn r3" id="rpe${ei}_2" onclick="setRpe(${ei},2)">😤<br>Costó</button>
+          <button class="rpe-btn r4" id="rpe${ei}_3" onclick="setRpe(${ei},3)">🔥<br>Límite</button>
+          <button class="rpe-btn r5" id="rpe${ei}_4" onclick="setRpe(${ei},4)">💀<br>Fallo</button>
         </div>
       </div>
     </div>`;
@@ -2073,7 +2107,8 @@ function saveSession() {
       const done = document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')||false;
       return {reps, kg, done};
     });
-    exercises[ei] = {name:ex.name, reps:ex.reps, kg:ex.kg, series};
+    const rpe = currentRpe[ei] !== undefined ? currentRpe[ei] : null;
+    exercises[ei] = {name:ex.name, reps:ex.reps, kg:ex.kg, series, rpe};
     if(series.some(s=>s.done)) completed++;
   });
 
@@ -2648,6 +2683,34 @@ function renderCoach() {
   let html = '';
 
   // ── Análisis de notas ────────────────────────────────────────────────────
+  // RPE analysis — detect exercises consistently at limit/failure
+  const rpeWarnings = [];
+  const rpeOpportunities = [];
+  days.forEach((day, di) => {
+    const daySess = sessions.filter(s=>s.dayIdx===di).slice(-4);
+    if (daySess.length < 2) return;
+    day.exercises.forEach((ex, ei) => {
+      const rpes = daySess.map(s=>s.exercises?.[ei]?.rpe).filter(r=>r!==null&&r!==undefined);
+      if (rpes.length < 2) return;
+      const avgRpe = rpes.reduce((a,b)=>a+b,0)/rpes.length;
+      if (avgRpe >= 3.5) rpeWarnings.push({name:ex.name, avg:avgRpe});
+      if (avgRpe <= 1.5) rpeOpportunities.push({name:ex.name, avg:avgRpe});
+    });
+  });
+
+  if (rpeWarnings.length) {
+    html += `<div style="margin:0 16px 14px;background:rgba(245,122,60,.07);border:1px solid rgba(245,122,60,.25);border-radius:var(--radius);padding:12px 14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#f57a3c;font-weight:600;margin-bottom:6px;">🔥 EJERCICIOS AL LÍMITE</div>
+      <div style="font-size:13px;color:#ccc;line-height:1.6;">${rpeWarnings.map(w=>`<strong>${w.name}</strong>`).join(', ')} — esfuerzo muy alto en las últimas sesiones. Revisá el peso o el descanso.</div>
+    </div>`;
+  }
+  if (rpeOpportunities.length) {
+    html += `<div style="margin:0 16px 14px;background:rgba(212,245,60,.06);border:1px solid var(--accent-border);border-radius:var(--radius);padding:12px 14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:6px;">⬆️ POTENCIAL SIN EXPLOTAR</div>
+      <div style="font-size:13px;color:#ccc;line-height:1.6;">${rpeOpportunities.map(w=>`<strong>${w.name}</strong>`).join(', ')} — siempre lo sentís fácil. Es momento de subir el peso.</div>
+    </div>`;
+  }
+
   const WARN_WORDS = ['cansado','cansada','dolor','lesion','lesión','mal','pesado','pesada','agotado','agotada','fallo','difícil','dificil','no pude'];
   const GOOD_WORDS = ['bien','genial','excelente','energía','energia','fuerte','liviano','liviana','perfecto','logré','logre'];
 
@@ -2995,11 +3058,16 @@ function renderHistory() {
             const maxKg = Math.max(0,...done.map(ss=>ss.kg||0));
             const totalReps = done.reduce((a,ss)=>a+(ss.reps||0),0);
             if (!done.length) return '';
+            const rpeLabels = ['Fácil','Normal','Costó','Límite','Fallo'];
+            const rpeEmoji  = ['😴','💪','😤','🔥','💀'];
+            const rpeHtml = ex.rpe !== null && ex.rpe !== undefined
+              ? `<span style="font-size:11px;color:var(--muted);">${rpeEmoji[ex.rpe]} ${rpeLabels[ex.rpe]}</span>` : '';
             return `<div class="hist-ex-row">
               <div class="hist-ex-name">${ex.name}</div>
               <div class="hist-ex-stats">
                 <span>${done.length} × ${Math.round(totalReps/done.length)} reps</span>
                 ${maxKg > 0 ? `<span class="hist-ex-kg">${maxKg} kg</span>` : ''}
+                ${rpeHtml}
               </div>
             </div>`;
           }).join('')}
