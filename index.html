@@ -1741,8 +1741,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.8.4';
+const APP_VERSION = '3.9.0';
 // Changelog:
+// 3.9.0 — GIFs animados de ejercicios via ExerciseDB
 // 3.8.4 — Biblioteca ejercicios ampliada + Calistenia
 // 3.8.3 — Fix rest bar visible al entrar al workout
 // 3.8.2 — Fix scroll dinámico al siguiente ejercicio
@@ -1961,6 +1962,93 @@ const EX_LIBRARY = [
 
 // Group list for filter
 const EX_GROUPS = [...new Set(EX_LIBRARY.map(e=>e.group))];
+
+// ═══════════════════════════════════════════════
+// EXERCISEDB API CONFIG
+// ═══════════════════════════════════════════════
+const EXERCISEDB_KEY = '82c7f16979mshe3ad7ef53c015a1p19b402jsn52d96d92b5df';
+const EXERCISEDB_HOST = 'exercisedb.p.rapidapi.com';
+
+// Mapeo: nombre en español → término de búsqueda en inglés para ExerciseDB
+const EX_GIF_MAP = {
+  // Espalda
+  'Tirón dorsal polea (agarre prono)': 'lat pulldown',
+  'Tirón dorsal polea (agarre neutro)': 'lat pulldown',
+  'Dominadas asistidas': 'assisted pull-up',
+  'Remo con barra': 'barbell bent over row',
+  'Remo con mancuerna': 'dumbbell bent over row',
+  'Pull over': 'dumbbell pullover',
+  'Remo en polea baja': 'cable seated row',
+  'Face pull': 'face pull',
+  'Hiperextensiones': 'hyperextension',
+  // Pecho
+  'Empuje de pecho mancuernas (banco plano)': 'dumbbell bench press',
+  'Empuje de pecho barra (banco inclinado)': 'barbell incline bench press',
+  'Empuje de pecho en máquina': 'chest press machine',
+  'Flexo extensión de brazos': 'push-up',
+  'Aperturas con mancuernas': 'dumbbell fly',
+  'Empuje de pecho mancuernas (banco inclinado)': 'dumbbell incline bench press',
+  'Empuje de pecho mancuernas (banco declinado)': 'dumbbell decline bench press',
+  // Hombros
+  'Empuje de hombros Arnold': 'arnold press',
+  'Vuelos laterales mancuernas': 'dumbbell lateral raise',
+  'Vuelos posteriores mancuernas': 'dumbbell reverse fly',
+  'Elevación de hombros': 'dumbbell shrug',
+  'Empuje militar barra': 'barbell military press',
+  'Elevación frontal mancuernas': 'dumbbell front raise',
+  'Empuje de hombros mancuernas': 'dumbbell shoulder press',
+  // Bíceps
+  'Bíceps con mancuernas': 'dumbbell bicep curl',
+  'Bíceps mancuernas (banco inclinado)': 'dumbbell incline curl',
+  'Bíceps con polea': 'cable bicep curl',
+  'Curl martillo': 'hammer curl',
+  'Curl concentrado': 'concentration curl',
+  'Curl con barra': 'barbell curl',
+  'Curl predicador': 'preacher curl',
+  // Tríceps
+  'Tríceps con polea (agarre prono)': 'cable tricep pushdown',
+  'Tríceps tras nuca mancuerna (1 brazo)': 'dumbbell tricep overhead extension',
+  'Tríceps patada de burro': 'dumbbell kickback',
+  'Fondos de tríceps en banco': 'tricep dip',
+  'Press francés': 'ez bar skullcrusher',
+  'Fondos en paralelas': 'dips',
+  // Piernas
+  'Sentadilla clásica': 'barbell squat',
+  'Peso muerto': 'deadlift',
+  'Estocada de arranque': 'dumbbell lunge',
+  'Prensa de piernas': 'leg press',
+  'Extensión de cuádriceps': 'leg extension',
+  'Curl femoral': 'leg curl',
+  'Elevación de gemelos': 'standing calf raise',
+  'Sentadilla sumo': 'sumo squat',
+  'Sentadilla búlgara': 'bulgarian split squat',
+  'Peso muerto rumano': 'romanian deadlift',
+  'Hip thrust': 'barbell hip thrust',
+  'Estocada con mancuernas': 'dumbbell lunge',
+  'Abductor en máquina': 'hip abduction',
+  'Aductor en máquina': 'hip adduction',
+  // Core
+  'Puente prono': 'plank',
+  'Plancha lateral': 'side plank',
+  'Rueda abdominal': 'ab wheel rollout',
+  'Russian twist': 'russian twist',
+  'Hollow body': 'hollow body hold',
+  'Dead bug': 'dead bug',
+  // Calistenia
+  'Dominadas (pull-up)': 'pull-up',
+  'Dominadas supinas (chin-up)': 'chin-up',
+  'Muscle up': 'muscle up',
+  'Fondos en paralelas (dips)': 'dips',
+  'Flexiones': 'push-up',
+  'Flexiones diamante': 'diamond push-up',
+  'Flexiones declinadas': 'decline push-up',
+  'Pike push-up': 'pike push up',
+  'Australian pull-up (remo invertido)': 'inverted row',
+  'Sentadilla pistol': 'pistol squat',
+  'Handstand push-up': 'handstand push-up',
+  'Nordic curl': 'nordic curl',
+  'Glute bridge': 'glute bridge',
+};
 
 // ═══════════════════════════════════════════════
 // EXERCISE INFO (static, same as before + extras)
@@ -3637,28 +3725,80 @@ function openInfo(exIdx, exName) {
   document.getElementById('infoNum').textContent = exIdx==='extra' ? 'EJERCICIO EXTRA' : `EJERCICIO ${parseInt(exIdx)+1}`;
   document.getElementById('infoName').textContent = exName;
   document.getElementById('infoOverlay').classList.add('open');
-  if (infoCache[exName]) { renderInfo(infoCache[exName]); return; }
+
   const info = EX_INFO[exName];
-  if (info) {
-    const normalized = {musculos_primarios:info.p, musculos_secundarios:info.s, descripcion:info.desc, tips:info.tips, error_comun:info.err};
-    infoCache[exName] = normalized;
-    renderInfo(normalized);
-  } else {
-    document.getElementById('infoBody').innerHTML = `<div style="padding:20px;color:var(--muted);text-align:center;font-size:13px;line-height:1.7;">No hay información cargada para este ejercicio.</div>`;
+  const normalized = info
+    ? {musculos_primarios:info.p, musculos_secundarios:info.s, descripcion:info.desc, tips:info.tips, error_comun:info.err}
+    : null;
+
+  // Show static info immediately
+  renderInfo(normalized, exName);
+
+  // Try to fetch GIF if we have a mapping and no cached gif yet
+  const searchTerm = EX_GIF_MAP[exName];
+  if (searchTerm && !infoCache[exName + '_gif']) {
+    fetchExerciseGif(exName, searchTerm);
+  } else if (infoCache[exName + '_gif']) {
+    showGifInInfo(infoCache[exName + '_gif']);
   }
 }
 
-function renderInfo(info) {
-  const prim=(info.musculos_primarios||[]).map(m=>`<span class="muscle-chip p">${m}</span>`).join('');
-  const sec=(info.musculos_secundarios||[]).map(m=>`<span class="muscle-chip s">${m}</span>`).join('');
-  const tips=(info.tips||[]).map(t=>`<div class="tip-item">· ${t}</div>`).join('');
-  document.getElementById('infoBody').innerHTML=`
-    <div style="margin-bottom:14px;">${prim}${sec}</div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">Ejecución</div>
-    <div class="info-desc">${info.descripcion}</div>
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">Tips clave</div>
-    <div class="tip-list">${tips}</div>
-    ${info.error_comun?`<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#f08080;margin-bottom:8px;">⚠ Error frecuente</div><div class="error-box">${info.error_comun}</div>`:''}`;
+async function fetchExerciseGif(exName, searchTerm) {
+  try {
+    const res = await fetch(
+      `https://exercisedb.p.rapidapi.com/exercises/name/${encodeURIComponent(searchTerm)}?limit=1`,
+      {
+        headers: {
+          'X-RapidAPI-Key': EXERCISEDB_KEY,
+          'X-RapidAPI-Host': EXERCISEDB_HOST,
+        }
+      }
+    );
+    const data = await res.json();
+    const gifUrl = data?.[0]?.gifUrl;
+    if (gifUrl) {
+      infoCache[exName + '_gif'] = gifUrl;
+      showGifInInfo(gifUrl);
+    }
+  } catch(e) {
+    // Silent fail — GIF is optional
+  }
+}
+
+function showGifInInfo(gifUrl) {
+  const gifWrap = document.getElementById('infoGifWrap');
+  if (!gifWrap) return;
+  gifWrap.innerHTML = `<img src="${gifUrl}" 
+    style="width:100%;border-radius:var(--radius);display:block;background:var(--surface2);"
+    onerror="this.parentElement.style.display='none'">`;
+  gifWrap.style.display = 'block';
+}
+
+function renderInfo(info, exName) {
+  const hasInfo = !!info;
+  const prim = hasInfo ? (info.musculos_primarios||[]).map(m=>`<span class="muscle-chip p">${m}</span>`).join('') : '';
+  const sec  = hasInfo ? (info.musculos_secundarios||[]).map(m=>`<span class="muscle-chip s">${m}</span>`).join('') : '';
+  const tips = hasInfo ? (info.tips||[]).map(t=>`<div class="tip-item">· ${t}</div>`).join('') : '';
+  const hasGifMap = !!(exName && EX_GIF_MAP[exName]);
+
+  document.getElementById('infoBody').innerHTML = `
+    ${hasGifMap ? `<div id="infoGifWrap" style="display:none;margin-bottom:14px;min-height:0;">
+      <div style="text-align:center;padding:20px;color:var(--muted);font-size:12px;">Cargando animación...</div>
+    </div>` : ''}
+    ${hasInfo ? `
+      ${prim||sec ? `<div style="margin-bottom:14px;">${prim}${sec}</div>` : ''}
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">Ejecución</div>
+      <div class="info-desc">${info.descripcion}</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">Tips clave</div>
+      <div class="tip-list">${tips}</div>
+      ${info.error_comun ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#f08080;margin-bottom:8px;">⚠ Error frecuente</div><div class="error-box">${info.error_comun}</div>` : ''}
+    ` : `<div style="padding:20px 0;color:var(--muted);text-align:center;font-size:13px;line-height:1.7;">Sin información disponible para este ejercicio.</div>`}
+  `;
+
+  // If gif already cached, show it immediately
+  if (exName && infoCache[exName + '_gif']) {
+    showGifInInfo(infoCache[exName + '_gif']);
+  }
 }
 
 // ═══════════════════════════════════════════════
