@@ -392,9 +392,12 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <div style="font-size:14px;color:var(--muted);margin-bottom:32px;line-height:1.7;font-weight:300;">
         ¿Es la primera vez que usás la app o<br>tenés un backup para restaurar?
       </div>
-      <button class="btn-p" onclick="obStartFresh()" style="margin-bottom:12px;">EMPEZAR DESDE CERO</button>
+      <button class="btn-p" onclick="obStartFresh()" style="margin-bottom:10px;">EMPEZAR DESDE CERO</button>
+      <button class="btn-g" style="width:100%;justify-content:center;margin-bottom:10px;" onclick="obRestoreFromDrive()">
+        ☁️ Restaurar desde Google Drive
+      </button>
       <button class="btn-g" style="width:100%;justify-content:center;" onclick="document.getElementById('obImportInput').click()">
-        ⬆️ Tengo un backup
+        ⬆️ Tengo un archivo backup
       </button>
       <input type="file" id="obImportInput" accept=".json" style="display:none;" onchange="obImportBackup(this)">
     </div>
@@ -1690,8 +1693,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.7.2';
+const APP_VERSION = '3.7.3';
 // Changelog:
+// 3.7.3 — Restaurar desde Drive en onboarding
 // 3.7.2 — Fix suplementos fecha local, limpieza keys viejas
 // 3.7.1 — Fix fechas locales (no UTC)
 // 3.7.0 — Confirmación salir workout, timer preciso, swipe mejorado, hints primera sesión
@@ -2011,6 +2015,63 @@ function obStartFresh() {
   document.getElementById('ob-step-welcome').classList.remove('active');
   document.getElementById('ob-step-0').classList.add('active');
   renderObProgress(0);
+}
+
+async function obRestoreFromDrive() {
+  if (!window.google?.accounts?.oauth2) {
+    toast('Cargando Google... intentá de nuevo en un momento');
+    return;
+  }
+
+  // Init token client if needed
+  if (!gdriveTokenClient) {
+    gdriveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GDRIVE_CLIENT_ID,
+      scope: GDRIVE_SCOPE,
+      callback: async (resp) => {
+        if (resp.error) { toast('Error al conectar con Google'); return; }
+        gdriveToken = resp.access_token;
+
+        // Save token
+        const cfg = db.syncCfg.get();
+        cfg.token = resp.access_token;
+        cfg.expires = Date.now() + (resp.expires_in * 1000);
+        db.syncCfg.set(cfg);
+
+        // Try to download
+        toast('Buscando backup en Drive...');
+        try {
+          const fileId = await gdriveFindFile();
+          if (!fileId) {
+            toast('No se encontró un backup en Drive');
+            return;
+          }
+          const res = await gdriveRequest('GET',
+            `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`
+          );
+          const data = await res.json();
+          if (data.profile)   db.profile.set(data.profile);
+          if (data.routine)   db.routine.set(data.routine);
+          if (data.sessions)  db.sessions.set(data.sessions);
+          if (data.sports)    db.sports.set(data.sports);
+          if (data.sportLogs) db.sportLogs.set(data.sportLogs);
+          if (data.supps)     db.supps.set(data.supps);
+          if (data.hidden)    db.hidden.set(data.hidden);
+          if (data.weightLog) db.weightLog.set(data.weightLog);
+          if (data.restCfg)   db.restCfg.set(data.restCfg);
+
+          document.getElementById('mainNav').style.display = 'flex';
+          renderHome();
+          snapTo('home');
+          toast('✓ Datos restaurados desde Drive 🎉');
+        } catch(e) {
+          toast('Error al restaurar desde Drive');
+          console.error(e);
+        }
+      },
+    });
+  }
+  gdriveTokenClient.requestAccessToken();
 }
 
 function obImportBackup(input) {
