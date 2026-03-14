@@ -1741,8 +1741,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.8.3';
+const APP_VERSION = '3.8.4';
 // Changelog:
+// 3.8.4 — Biblioteca ejercicios ampliada + Calistenia
 // 3.8.3 — Fix rest bar visible al entrar al workout
 // 3.8.2 — Fix scroll dinámico al siguiente ejercicio
 // 3.8.1 — Ejercicio completado verde, RPE inline quitado, notas fix, extra live DOM
@@ -1874,6 +1875,88 @@ const EX_LIBRARY = [
   {name:'Remo ergómetro',group:'Cardio',kg:false},
   {name:'Burpees',group:'Cardio',kg:false},
   {name:'Salto a la soga',group:'Cardio',kg:false},
+  {name:'Box jumps',group:'Cardio',kg:false},
+  {name:'Mountain climbers',group:'Cardio',kg:false},
+  {name:'Jumping jacks',group:'Cardio',kg:false},
+
+  // ── ESPALDA adicionales ───────────────────────────────────────────────────
+  {name:'Remo en polea baja',group:'Espalda',kg:true},
+  {name:'Face pull',group:'Espalda',kg:true},
+  {name:'Hiperextensiones',group:'Espalda',kg:false},
+  {name:'Encogimientos de hombros (trapecio)',group:'Espalda',kg:true},
+
+  // ── PECHO adicionales ─────────────────────────────────────────────────────
+  {name:'Empuje de pecho mancuernas (banco inclinado)',group:'Pecho',kg:true},
+  {name:'Empuje de pecho mancuernas (banco declinado)',group:'Pecho',kg:true},
+  {name:'Aperturas en máquina (peck deck)',group:'Pecho',kg:true},
+  {name:'Pullover en polea',group:'Pecho',kg:true},
+
+  // ── HOMBROS adicionales ───────────────────────────────────────────────────
+  {name:'Empuje de hombros mancuernas',group:'Hombros',kg:true},
+  {name:'Rotación externa con mancuerna',group:'Hombros',kg:true},
+  {name:'Elevación frontal mancuernas',group:'Hombros',kg:true},
+
+  // ── BÍCEPS adicionales ────────────────────────────────────────────────────
+  {name:'Curl con barra',group:'Bíceps',kg:true},
+  {name:'Curl en máquina',group:'Bíceps',kg:true},
+  {name:'Curl predicador',group:'Bíceps',kg:true},
+
+  // ── TRÍCEPS adicionales ───────────────────────────────────────────────────
+  {name:'Tríceps con polea (agarre supino)',group:'Tríceps',kg:true},
+  {name:'Fondos en paralelas',group:'Tríceps',kg:false},
+  {name:'Tríceps en polea con cuerda',group:'Tríceps',kg:true},
+
+  // ── PIERNAS adicionales ───────────────────────────────────────────────────
+  {name:'Sentadilla sumo',group:'Piernas',kg:true},
+  {name:'Sentadilla búlgara',group:'Piernas',kg:true},
+  {name:'Peso muerto rumano',group:'Piernas',kg:true},
+  {name:'Hip thrust',group:'Piernas',kg:true},
+  {name:'Estocada con mancuernas',group:'Piernas',kg:true},
+  {name:'Abductor en máquina',group:'Piernas',kg:true},
+  {name:'Aductor en máquina',group:'Piernas',kg:true},
+  {name:'Elevación de gemelos sentado',group:'Piernas',kg:true},
+
+  // ── CORE adicionales ──────────────────────────────────────────────────────
+  {name:'Plancha lateral',group:'Core',kg:false},
+  {name:'Dragon flag',group:'Core',kg:false},
+  {name:'L-sit',group:'Core',kg:false},
+  {name:'Dead bug',group:'Core',kg:false},
+  {name:'Hollow body',group:'Core',kg:false},
+  {name:'Russian twist',group:'Core',kg:false},
+  {name:'Pallof press',group:'Core',kg:true},
+  {name:'Rollout con barra',group:'Core',kg:false},
+
+  // ── CALISTENIA ────────────────────────────────────────────────────────────
+  {name:'Dominadas (pull-up)',group:'Calistenia',kg:false},
+  {name:'Dominadas supinas (chin-up)',group:'Calistenia',kg:false},
+  {name:'Muscle up',group:'Calistenia',kg:false},
+  {name:'Fondos en paralelas (dips)',group:'Calistenia',kg:false},
+  {name:'Flexiones',group:'Calistenia',kg:false},
+  {name:'Flexiones diamante',group:'Calistenia',kg:false},
+  {name:'Flexiones declinadas',group:'Calistenia',kg:false},
+  {name:'Flexiones arqueras',group:'Calistenia',kg:false},
+  {name:'Pike push-up',group:'Calistenia',kg:false},
+  {name:'Australian pull-up (remo invertido)',group:'Calistenia',kg:false},
+  {name:'Sentadilla pistol',group:'Calistenia',kg:false},
+  {name:'Bulgarian split squat (peso corporal)',group:'Calistenia',kg:false},
+  {name:'Zancadas',group:'Calistenia',kg:false},
+  {name:'Saltos al cajón',group:'Calistenia',kg:false},
+  {name:'Planche lean',group:'Calistenia',kg:false},
+  {name:'Front lever (progresiones)',group:'Calistenia',kg:false},
+  {name:'Back lever (progresiones)',group:'Calistenia',kg:false},
+  {name:'Handstand (parada de manos)',group:'Calistenia',kg:false},
+  {name:'Handstand push-up',group:'Calistenia',kg:false},
+  {name:'Human flag (progresiones)',group:'Calistenia',kg:false},
+  {name:'Plancha (isométrico)',group:'Calistenia',kg:false},
+  {name:'Plancha lateral (isométrico)',group:'Calistenia',kg:false},
+  {name:'Superman (isométrico)',group:'Calistenia',kg:false},
+  {name:'Hollow body (isométrico)',group:'Calistenia',kg:false},
+  {name:'Arch body (isométrico)',group:'Calistenia',kg:false},
+  {name:'Dips en silla',group:'Calistenia',kg:false},
+  {name:'Step up',group:'Calistenia',kg:false},
+  {name:'Nordic curl',group:'Calistenia',kg:false},
+  {name:'Glute bridge',group:'Calistenia',kg:false},
+  {name:'Single leg glute bridge',group:'Calistenia',kg:false},
 ];
 
 // Group list for filter
