@@ -599,8 +599,18 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
         <div class="pin-dot" id="pd3"></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto 16px;">
-        ${[1,2,3,4,5,6,7,8,9,'','0','⌫'].map(n=>`
-          <button class="pin-key" onclick="pinKey('${n}')">${n}</button>`).join('')}
+        <button class="pin-key" onclick="pinKey('1')">1</button>
+        <button class="pin-key" onclick="pinKey('2')">2</button>
+        <button class="pin-key" onclick="pinKey('3')">3</button>
+        <button class="pin-key" onclick="pinKey('4')">4</button>
+        <button class="pin-key" onclick="pinKey('5')">5</button>
+        <button class="pin-key" onclick="pinKey('6')">6</button>
+        <button class="pin-key" onclick="pinKey('7')">7</button>
+        <button class="pin-key" onclick="pinKey('8')">8</button>
+        <button class="pin-key" onclick="pinKey('9')">9</button>
+        <button class="pin-key" style="visibility:hidden;"></button>
+        <button class="pin-key" onclick="pinKey('0')">0</button>
+        <button class="pin-key" onclick="pinKey('⌫')">⌫</button>
       </div>
       <button class="btn-g" style="width:100%;justify-content:center;" onclick="closePinOverlay()">Cancelar</button>
     </div>
@@ -1376,7 +1386,7 @@ function roundRect(ctx, x, y, w, h, r) {
 // GOOGLE DRIVE SYNC
 // ═══════════════════════════════════════════════
 const GDRIVE_CLIENT_ID = '919267412270-7qmda03ttdp7lqdgq9u2oe642tjn7st4.apps.googleusercontent.com';
-const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const GDRIVE_FILE_NAME = 'gymtrack-sync.json';
 const AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
@@ -1498,7 +1508,7 @@ async function gdriveFindFile() {
   const cfg = db.syncCfg.get();
   if (cfg.fileId) return cfg.fileId;
   const res = await gdriveRequest('GET',
-    `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${GDRIVE_FILE_NAME}'&fields=files(id)`
+    `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILE_NAME}'&fields=files(id)`
   );
   const data = await res.json();
   const fileId = data.files?.[0]?.id || null;
@@ -1538,10 +1548,9 @@ async function gdriveUpload(silent = false) {
         blob, false
       );
     } else {
-      // Create new file in appDataFolder
+      // Create new file in Drive root
       const meta = new Blob([JSON.stringify({
-        name: GDRIVE_FILE_NAME,
-        parents: ['appDataFolder']
+        name: GDRIVE_FILE_NAME
       })], {type: 'application/json'});
       const form = new FormData();
       form.append('metadata', meta);
@@ -1603,8 +1612,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.4.0';
+const APP_VERSION = '3.4.1';
 // Changelog:
+// 3.4.1 — Fix teclado PIN
 // 3.4.0 — Google Drive sync automático
 // 3.3.0 — Exportar sesión como imagen
 // 3.2.0 — Fotos de progreso con PIN
