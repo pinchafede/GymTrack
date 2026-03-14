@@ -928,6 +928,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     <div id="calContent" style="padding:0 18px;"></div>
     <div style="padding:4px 18px 20px;display:flex;flex-direction:column;gap:8px;">
       <button class="btn-p" id="calConfirmBtn" onclick="confirmSave()">IR AL INICIO</button>
+      <button class="btn-g" id="calShareBtn" style="width:100%;justify-content:center;" onclick="shareSession()">📤 Compartir resumen</button>
       <button class="btn-g" id="calCancelBtn" style="width:100%;justify-content:center;" onclick="document.getElementById('calOverlay').classList.remove('open')">Seguir editando</button>
     </div>
   </div>
@@ -1152,10 +1153,205 @@ function deleteCurrentPhoto() {
 }
 
 // ═══════════════════════════════════════════════
+// SHARE SESSION AS IMAGE
+// ═══════════════════════════════════════════════
+let currentSummarySession = null;
+
+function shareSession() {
+  if (!currentSummarySession) return;
+  generateAndShare(currentSummarySession);
+}
+
+function shareSessionByTs(ts) {
+  const sess = db.sessions.get().find(s => s.ts === ts);
+  if (!sess) return;
+  generateAndShare(sess);
+}
+
+function generateAndShare(sess) {
+  const routine = db.routine.get();
+  const dayName = routine?.days?.[sess.dayIdx]?.name || 'Entrenamiento';
+  const dateStr = new Date(sess.ts).toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const DAY_COLORS_HEX = ['#d4f53c','#3cf5a0','#3ca8f5','#f53ca8','#f5a63c','#a63cf5','#f53c3c'];
+  const accentColor = DAY_COLORS_HEX[sess.dayIdx % 7] || '#d4f53c';
+
+  const exList = Object.values(sess.exercises||{}).map(ex => {
+    const done = ex.series?.filter(s=>s.done)||[];
+    const maxKg = ex.kg ? Math.max(0,...done.map(s=>s.kg||0)) : 0;
+    const avgReps = done.length ? Math.round(done.reduce((a,s)=>a+(s.reps||0),0)/done.length) : 0;
+    return {name:ex.name, done:done.length, avgReps, maxKg, isKg:ex.kg};
+  }).filter(ex=>ex.done>0);
+
+  // PRs
+  const allSessions = db.sessions.get();
+  const prevSessions = allSessions.filter(s=>new Date(s.ts)<new Date(sess.ts));
+  const prs = exList.filter(ex => {
+    if (!ex.isKg||!ex.maxKg) return false;
+    const prevMax = prevSessions.flatMap(s=>Object.values(s.exercises||{}).filter(e=>e.name===ex.name))
+      .flatMap(e=>e.series||[]).filter(s=>s.done&&s.kg>0).reduce((a,s)=>Math.max(a,s.kg),0);
+    return ex.maxKg > prevMax;
+  });
+
+  const vol = exList.reduce((a,ex)=>a+(ex.isKg&&ex.maxKg?ex.done*ex.avgReps*ex.maxKg:0),0);
+
+  // Canvas dimensions
+  const W = 800, PAD = 48;
+  const EX_H = 50;
+  const PR_H = prs.length ? 50 + prs.length * 30 + 20 : 0;
+  const NOTA_H = sess.nota ? 44 : 0;
+  const H = 180 + exList.length * EX_H + PR_H + NOTA_H + 80;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // BG
+  ctx.fillStyle = '#0d0d0d';
+  ctx.fillRect(0, 0, W, H);
+
+  // Accent top bar
+  ctx.fillStyle = accentColor;
+  ctx.fillRect(0, 0, W, 6);
+
+  // Header
+  let y = 44;
+  ctx.fillStyle = '#555';
+  ctx.font = '600 18px -apple-system, system-ui, sans-serif';
+  ctx.fillText('GYMTRACK', PAD, y);
+
+  y += 44;
+  ctx.fillStyle = accentColor;
+  ctx.font = '700 46px -apple-system, system-ui, sans-serif';
+  const dayUpper = dayName.toUpperCase();
+  ctx.fillText(dayUpper, PAD, y);
+
+  y += 28;
+  ctx.fillStyle = '#666';
+  ctx.font = '400 20px -apple-system, system-ui, sans-serif';
+  ctx.fillText(dateStr, PAD, y);
+
+  // Stats row
+  y += 44;
+  const stats = [
+    {val: String(exList.length), lbl: 'ejercicios'},
+    sess.calories ? {val: String(sess.calories), lbl: 'kcal'} : null,
+    vol > 0 ? {val: Math.round(vol)+'kg', lbl: 'volumen'} : null,
+  ].filter(Boolean);
+
+  stats.forEach((s, i) => {
+    const x = PAD + i * 210;
+    ctx.fillStyle = accentColor;
+    ctx.font = '700 34px -apple-system, system-ui, sans-serif';
+    ctx.fillText(s.val, x, y);
+    ctx.fillStyle = '#555';
+    ctx.font = '400 16px -apple-system, system-ui, sans-serif';
+    ctx.fillText(s.lbl, x, y + 22);
+  });
+
+  // Divider
+  y += 52;
+  ctx.strokeStyle = '#1e1e1e';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
+  y += 18;
+
+  // Exercises
+  exList.forEach((ex, i) => {
+    if (i % 2 === 0) {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, y - 12, W, EX_H);
+    }
+    ctx.fillStyle = '#e8e8e8';
+    ctx.font = '500 19px -apple-system, system-ui, sans-serif';
+    const nameStr = ex.name.length > 36 ? ex.name.slice(0,34)+'…' : ex.name;
+    ctx.fillText(nameStr, PAD, y + 8);
+
+    ctx.fillStyle = '#666';
+    ctx.font = '400 17px -apple-system, system-ui, sans-serif';
+    const stat = ex.isKg && ex.maxKg
+      ? `${ex.done}×${ex.avgReps}r · ${ex.maxKg}kg`
+      : `${ex.done}×${ex.avgReps}r`;
+    const tw = ctx.measureText(stat).width;
+    ctx.fillText(stat, W - PAD - tw, y + 8);
+    y += EX_H;
+  });
+
+  // PRs block
+  if (prs.length) {
+    y += 16;
+    ctx.fillStyle = 'rgba(212,245,60,0.07)';
+    ctx.strokeStyle = 'rgba(212,245,60,0.25)';
+    ctx.lineWidth = 1;
+    const prH = 44 + prs.length * 30;
+    roundRect(ctx, PAD, y, W-PAD*2, prH, 10);
+    ctx.fill(); ctx.stroke();
+
+    y += 30;
+    ctx.fillStyle = accentColor;
+    ctx.font = '700 15px -apple-system, system-ui, sans-serif';
+    ctx.fillText('🏆  NUEVO RÉCORD PERSONAL', PAD + 16, y);
+    prs.forEach(pr => {
+      y += 30;
+      ctx.fillStyle = '#e8e8e8';
+      ctx.font = '500 18px -apple-system, system-ui, sans-serif';
+      ctx.fillText(pr.name, PAD + 16, y);
+      ctx.fillStyle = accentColor;
+      ctx.font = '700 18px -apple-system, system-ui, sans-serif';
+      const kgStr = pr.maxKg + 'kg';
+      ctx.fillText(kgStr, W - PAD - 16 - ctx.measureText(kgStr).width, y);
+    });
+    y += 20;
+  }
+
+  // Nota
+  if (sess.nota) {
+    y += 16;
+    ctx.fillStyle = '#444';
+    ctx.font = 'italic 400 16px -apple-system, system-ui, sans-serif';
+    const notaShort = sess.nota.length > 70 ? sess.nota.slice(0,68)+'…' : sess.nota;
+    ctx.fillText(`"${notaShort}"`, PAD, y);
+  }
+
+  // Footer bar
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, H-48, W, 48);
+  ctx.fillStyle = accentColor;
+  ctx.fillRect(0, H-48, 4, 48);
+  ctx.fillStyle = '#444';
+  ctx.font = '400 16px -apple-system, system-ui, sans-serif';
+  ctx.fillText('Registrado con GymTrack', PAD + 12, H - 18);
+
+  // Share or download
+  canvas.toBlob(blob => {
+    const fname = `gymtrack-${sess.ts.slice(0,10)}.png`;
+    const file = new File([blob], fname, {type:'image/png'});
+    if (navigator.share && navigator.canShare?.({files:[file]})) {
+      navigator.share({files:[file], title:`GymTrack · ${dayName}`}).catch(()=>{});
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fname; a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, 'image/png');
+  toast('Generando imagen…');
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+
+// ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.2.0';
+const APP_VERSION = '3.3.0';
 // Changelog:
+// 3.3.0 — Exportar sesión como imagen
 // 3.2.0 — Fotos de progreso con PIN
 // 3.1.0 — Recordatorios de suplementos
 // 3.0.0 — RPE por ejercicio + análisis en Coach
@@ -2480,6 +2676,7 @@ function saveSession() {
 }
 
 function showQuickSummary(sess, completed, skipped, newPRs, curVol, prevVol, cal) {
+  currentSummarySession = sess; // for share button
   const routine = db.routine.get();
   const day = routine.days[sess.dayIdx];
   const volDiff = prevVol > 0 ? Math.round((curVol - prevVol) / prevVol * 100) : null;
@@ -3397,7 +3594,8 @@ function renderHistory() {
             </div>`;
           }).join('')}
           ${s.nota ? `<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border-left:3px solid ${color};font-size:13px;color:#ccc;line-height:1.6;font-style:italic;">"${s.nota}"</div>` : ''}
-          <div style="margin-top:10px;">
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+            <button class="btn-g" style="width:100%;justify-content:center;" onclick="shareSessionByTs('${s.ts}')">📤 Compartir resumen</button>
             <button class="btn-g danger" style="width:100%;justify-content:center;" onclick="deleteSession('gym','${s.ts}')">Eliminar sesión</button>
           </div>
         </div>
