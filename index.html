@@ -1082,8 +1082,9 @@ function processPinInput() {
   const cfg = db.pinCfg.get();
   if (pinMode === 'unlock') {
     if (hashPin(pinBuffer) === cfg.hash) {
+      const cb = pinCallback; // save before closePinOverlay nulls it
       closePinOverlay();
-      if (pinCallback) pinCallback();
+      if (cb) cb();
     } else {
       pinError();
       toast('PIN incorrecto');
@@ -1103,9 +1104,10 @@ function processPinInput() {
     if (pinBuffer === pinTempNew) {
       cfg.hash = hashPin(pinBuffer);
       db.pinCfg.set(cfg);
+      const cb = pinCallback; // save before closePinOverlay nulls it
       closePinOverlay();
       toast('✓ PIN configurado');
-      if (pinCallback) pinCallback();
+      if (cb) cb();
     } else {
       pinError();
       toast('Los PINs no coinciden');
@@ -1632,8 +1634,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.5.3';
+const APP_VERSION = '3.5.4';
 // Changelog:
+// 3.5.4 — Fix PIN callback
 // 3.5.3 — Fotos solo desde galería
 // 3.5.2 — Fix subida fotos en móvil
 // 3.5.1 — Fix navegación fotos post-PIN
