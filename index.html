@@ -347,6 +347,10 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .weight-entry-delta.up{color:#f08080;background:rgba(240,128,128,.1);}
 .weight-entry-delta.down{color:var(--accent);background:var(--accent-dim);}
 .weight-entry-delta.same{color:var(--muted);background:var(--surface2);}
+.toggle-track{width:44px;height:26px;background:var(--surface2);border:1.5px solid var(--border);border-radius:13px;position:relative;transition:all .2s;cursor:pointer;}
+.toggle-track.on{background:var(--accent);border-color:var(--accent);}
+.toggle-track::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.toggle-track.on::after{transform:translateX(18px);}
 
 /* RPE */
 .rpe-row{display:flex;gap:6px;padding:10px 0 6px;border-top:1px solid var(--border);margin-top:4px;}
@@ -622,6 +626,40 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <div id="weightList"></div>
     </div>
 
+    <div class="sec-label">Notificaciones de suplementos</div>
+    <div class="settings-section">
+      <div class="settings-row">
+        <div><div class="settings-row-title">Activar recordatorios</div><div class="settings-row-sub">Te avisa cuando tenés suplementos pendientes</div></div>
+        <div class="toggle-track" id="notifTrack" onclick="toggleNotif()"></div>
+      </div>
+      <div id="notifTimesBlock" style="display:none;">
+        <div class="settings-row">
+          <div><div class="settings-row-title">🌅 Mañana</div></div>
+          <input type="time" id="notifT_mañana" value="08:00"
+            style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:7px 10px;cursor:pointer;"
+            onchange="saveNotifCfg()">
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-title">⚡ Pre-entreno</div></div>
+          <input type="time" id="notifT_pre" value="17:00"
+            style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:7px 10px;cursor:pointer;"
+            onchange="saveNotifCfg()">
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-title">💪 Post-entreno</div></div>
+          <input type="time" id="notifT_post" value="19:30"
+            style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:7px 10px;cursor:pointer;"
+            onchange="saveNotifCfg()">
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-row-title">🌙 Noche</div></div>
+          <input type="time" id="notifT_noche" value="22:00"
+            style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:7px 10px;cursor:pointer;"
+            onchange="saveNotifCfg()">
+        </div>
+      </div>
+    </div>
+
     <div class="sec-label">Entrenamiento</div>
     <div class="settings-section">
       <div class="settings-row">
@@ -835,8 +873,9 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 // Changelog:
+// 3.1.0 — Notificaciones push de recordatorio
 // 3.0.0 — RPE por ejercicio + análisis en Coach
 // 2.9.0 — Notas por sesión + análisis en Coach
 // 2.8.0 — Seguimiento de peso corporal con gráfico
@@ -866,6 +905,7 @@ const db = {
   },
   hidden:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_hidden')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_hidden',JSON.stringify(v)) },
   restCfg:    { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_rest_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_rest_cfg',JSON.stringify(v)) },
+  notifCfg:   { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_notif_cfg')||'{}')}catch{return{}} }, set:v=>localStorage.setItem('gt_notif_cfg',JSON.stringify(v)) },
   weightLog:  { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_weightlog')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_weightlog',JSON.stringify(v)) },
 };
 
@@ -3102,6 +3142,107 @@ function deleteSession(type, id) {
 // ═══════════════════════════════════════════════
 // SETTINGS
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// NOTIFICATIONS — Suplementos
+// ═══════════════════════════════════════════════
+const notifTimers = {};
+const NOTIF_MOMENTS = ['mañana','pre','post','noche'];
+const NOTIF_LABELS  = {'mañana':'🌅 Mañana','pre':'⚡ Pre-entreno','post':'💪 Post-entreno','noche':'🌙 Noche'};
+const NOTIF_DEFAULTS = {'mañana':'08:00','pre':'17:00','post':'19:30','noche':'22:00'};
+
+function loadNotifCfg() {
+  const cfg = db.notifCfg.get();
+  const track = document.getElementById('notifTrack');
+  const timesBlock = document.getElementById('notifTimesBlock');
+  if (!track) return;
+
+  const enabled = !!cfg.enabled;
+  track.classList.toggle('on', enabled);
+  if (timesBlock) timesBlock.style.display = enabled ? '' : 'none';
+
+  // Load saved times into inputs
+  NOTIF_MOMENTS.forEach(m => {
+    const el = document.getElementById(`notifT_${m}`);
+    if (el && cfg.times?.[m]) el.value = cfg.times[m];
+  });
+}
+
+async function toggleNotif() {
+  const cfg = db.notifCfg.get();
+  if (!cfg.enabled) {
+    if (!('Notification' in window)) { toast('Tu navegador no soporta notificaciones'); return; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast('Permiso denegado — habilitalo en Ajustes del sistema'); return; }
+    cfg.enabled = true;
+    if (!cfg.times) cfg.times = {...NOTIF_DEFAULTS};
+  } else {
+    cfg.enabled = false;
+  }
+  db.notifCfg.set(cfg);
+  loadNotifCfg();
+  scheduleAllNotifs();
+  toast(cfg.enabled ? '✓ Recordatorios activados' : 'Recordatorios desactivados');
+}
+
+function saveNotifCfg() {
+  const cfg = db.notifCfg.get();
+  if (!cfg.times) cfg.times = {...NOTIF_DEFAULTS};
+  NOTIF_MOMENTS.forEach(m => {
+    const el = document.getElementById(`notifT_${m}`);
+    if (el) cfg.times[m] = el.value;
+  });
+  db.notifCfg.set(cfg);
+  scheduleAllNotifs();
+  toast('✓ Horarios guardados');
+}
+
+function scheduleAllNotifs() {
+  // Clear existing timers
+  Object.values(notifTimers).forEach(t => clearTimeout(t));
+  Object.keys(notifTimers).forEach(k => delete notifTimers[k]);
+
+  const cfg = db.notifCfg.get();
+  if (!cfg.enabled || Notification.permission !== 'granted') return;
+
+  NOTIF_MOMENTS.forEach(momento => {
+    const timeStr = cfg.times?.[momento] || NOTIF_DEFAULTS[momento];
+    scheduleNotifForMomento(momento, timeStr);
+  });
+}
+
+function scheduleNotifForMomento(momento, timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(h, m, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+
+  const ms = target - now;
+  notifTimers[momento] = setTimeout(() => {
+    fireNotifIfNeeded(momento);
+    // Re-schedule for next day
+    scheduleNotifForMomento(momento, timeStr);
+  }, ms);
+}
+
+function fireNotifIfNeeded(momento) {
+  const supps = db.supps.get().filter(s => s.momento === momento || (momento === 'mañana' && s.momento === 'cualquier'));
+  if (!supps.length) return;
+
+  const today = db.suppToday.get();
+  const pending = supps.filter(s => !today[s.id]?.done);
+  if (!pending.length) return; // all done, no notification
+
+  const names = pending.map(s => s.name).join(', ');
+  const label = NOTIF_LABELS[momento] || momento;
+  new Notification(`GymTrack · ${label}`, {
+    body: `Pendiente: ${names}`,
+    icon: 'icon-192.png',
+    tag: `gymtrack-supp-${momento}`,
+    renotify: true,
+  });
+}
+
 function adjRest(type, delta) {
   const rc = db.restCfg.get();
   const key = type === 'series' ? 'series' : 'exercise';
@@ -3126,6 +3267,7 @@ function loadSettings() {
   if(p.sexo) document.getElementById('cfgSexo').value = p.sexo;
   updateBMR();
   renderWeightSection();
+  loadNotifCfg();
   // Show current version
   const vEl = document.getElementById('appVersionLabel');
   if (vEl) vEl.textContent = APP_VERSION;
@@ -3361,11 +3503,12 @@ function forceUpdate() {
 function init() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(()=>{});
-    // Listen for SW reload signal
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data === 'RELOAD') location.reload(true);
     });
   }
+  // Start supplement notification scheduler
+  setTimeout(() => scheduleAllNotifs(), 1000);
   initOnboarding();
 }
 
