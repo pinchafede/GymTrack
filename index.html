@@ -699,11 +699,11 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     <div class="sec-label">Fotos de progreso</div>
     <div class="settings-section">
       <div class="settings-row" style="cursor:pointer;" onclick="openPhotos()">
-        <div><div class="settings-row-title">📸 Ver mis fotos</div><div class="settings-row-sub">Galería de progreso</div></div>
+        <div><div class="settings-row-title">📸 Fotos de progreso</div><div class="settings-row-sub">Ver y agregar fotos · tocá para abrir</div></div>
         <div style="color:var(--muted);">›</div>
       </div>
       <div class="settings-row" style="cursor:pointer;" onclick="setupPin()">
-        <div><div class="settings-row-title" id="pinSettingsTitle">🔒 Configurar PIN</div><div class="settings-row-sub">Protege el acceso a tus fotos</div></div>
+        <div><div class="settings-row-title" id="pinSettingsTitle">🔒 Configurar PIN</div><div class="settings-row-sub">Protege el acceso con un PIN de 4 dígitos</div></div>
         <div style="color:var(--muted);">›</div>
       </div>
     </div>
@@ -998,17 +998,15 @@ function openPhotos() {
   const pin = db.pinCfg.get();
   if (pin.hash) {
     showPin('unlock', () => {
-      renderPhotoGrid();
-      snapTo('photos');
+      document.getElementById('pinOverlay').classList.remove('open');
+      setTimeout(() => {
+        renderPhotoGrid();
+        snapTo('photos');
+      }, 50);
     });
   } else {
     renderPhotoGrid();
     snapTo('photos');
-    setTimeout(() => {
-      if (!db.pinCfg.get().hash) {
-        toast('Tip: configurá un PIN en Ajustes del perfil para proteger tus fotos');
-      }
-    }, 800);
   }
 }
 
@@ -1036,7 +1034,9 @@ function showPin(mode, callback) {
 function closePinOverlay() {
   document.getElementById('pinOverlay').classList.remove('open');
   pinBuffer = '';
+  pinTempNew = '';
   pinCallback = null;
+  updatePinDots();
 }
 
 function pinKey(val) {
@@ -1628,9 +1628,10 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.5.0';
+const APP_VERSION = '3.5.1';
 // Changelog:
-// 3.5.0 — Pantalla de Perfil separada, fix fotos
+// 3.5.1 — Fix navegación fotos post-PIN
+// 3.5.0 — Pantalla de Perfil separada
 // 3.4.2 — Fix confirmación PIN
 // 3.4.1 — Fix teclado PIN
 // 3.4.0 — Google Drive sync automático
