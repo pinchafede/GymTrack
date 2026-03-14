@@ -439,7 +439,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   <div class="home-hero" onclick="navTo('profile')" style="cursor:pointer;"><h1 id="homeTitle">GYMTRACK</h1><p id="homeSubtitle">Tu rutina de hoy</p></div>
   <div class="stats-row">
     <div class="stat-box"><div class="stat-num" id="hTotal">0</div><div class="stat-lbl">sesiones</div></div>
-    <div class="stat-box"><div class="stat-num" id="hWeek">0</div><div class="stat-lbl">esta semana</div></div>
+    <div class="stat-box"><div class="stat-num" id="hWeek">0</div><div class="stat-lbl">esta semana</div><div id="hWeekBreakdown" style="font-size:10px;color:var(--muted);margin-top:2px;"></div></div>
     <div class="stat-box"><div class="stat-num" id="hStreak">0</div><div class="stat-lbl" id="hStreakLbl">racha días</div></div>
   </div>
   <div class="week-dots" id="weekDots"></div>
@@ -457,7 +457,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 <!-- ═══ WORKOUT ═══ -->
 <div id="s-workout" class="screen">
   <div class="workout-header">
-    <div class="btn-back" onclick="navBack()">‹</div>
+    <div class="btn-back" onclick="confirmLeaveWorkout()">‹</div>
     <div style="flex:1;">
       <div class="w-day-label" id="wLabel">Día 1</div>
       <div class="w-day-name" id="wName">ENTRENAMIENTO</div>
@@ -1681,8 +1681,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.6.2';
+const APP_VERSION = '3.7.0';
 // Changelog:
+// 3.7.0 — Confirmación salir workout, timer preciso, swipe mejorado, hints primera sesión
 // 3.6.2 — Fix detección cambio de día en saludo home
 // 3.6.1 — Fix tamaño input peso
 // 3.6.0 — Rediseño perfil, fix overscroll, peso+foto integrados
@@ -2434,6 +2435,14 @@ function renderHome() {
     streakEl.style.color = 'var(--accent)';
     if (streakLbl) streakLbl.textContent = 'racha días';
   }
+  // Breakdown: gym vs sport this week
+  const weekBreakdown = document.getElementById('hWeekBreakdown');
+  if (weekBreakdown) {
+    const parts = [];
+    if (gymThisWeek > 0) parts.push(`${gymThisWeek} gym`);
+    if (sportThisWeek > 0) parts.push(`${sportThisWeek} deporte`);
+    weekBreakdown.textContent = parts.length > 1 ? parts.join(' · ') : '';
+  }
 
   // Week dots
   const wd = document.getElementById('weekDots');
@@ -2595,6 +2604,35 @@ function renderSuppWidget() {
 let pendingSession = null;
 let infoCache = {};
 
+function confirmLeaveWorkout() {
+  // Check if any series has been marked done
+  const routine = db.routine.get();
+  const day = routine?.days?.[currentDayIdx];
+  if (!day) { navBack(); return; }
+
+  let anyDone = false;
+  day.exercises.forEach((ex, ei) => {
+    for (let si = 0; si < ex.series; si++) {
+      if (document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')) {
+        anyDone = true;
+      }
+    }
+  });
+
+  if (anyDone) {
+    // Has progress — show options
+    const action = confirm('¿Salir del entrenamiento?\n\nPresioná OK para salir sin guardar, o Cancelar para volver.');
+    if (action) {
+      stopRest();
+      navBack();
+    }
+  } else {
+    // Nothing done yet — exit freely
+    stopRest();
+    navBack();
+  }
+}
+
 function startWorkout(di) {
   // Reset RPE for new workout
   Object.keys(currentRpe).forEach(k => delete currentRpe[k]);
@@ -2634,6 +2672,17 @@ function setRpe(ei, val) {
     if (btn) btn.classList.toggle('active', i === val);
   }
   if (navigator.vibrate) navigator.vibrate(20);
+}
+
+function buildSparklineOrHint(exSessions, lastKg) {
+  if (!exSessions.length) {
+    // Primera vez que se entrena este ejercicio
+    return `<div style="font-size:12px;color:var(--muted);padding:6px 0 8px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+      Primera vez · ingresá el peso con el que arrancás
+    </div>`;
+  }
+  if (!lastKg) return ''; // has sessions but no kg (bodyweight exercise)
+  return `<div class="last-kg-hint">Última vez: ${lastKg}kg</div>`;
 }
 
 function buildSparkline(exSessions, ei) {
@@ -2735,6 +2784,7 @@ function renderExList(di) {
       </div>
       <div class="ex-body${isFirst?' open':''}" id="exBody${ei}">
         ${buildSparkline(exSessions, ei)}
+        ${!exSessions.length && ex.kg ? `<div style="font-size:12px;color:var(--muted);padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px;">Primera vez · ingresá el peso con el que arrancás 💪</div>` : ''}
         <div id="serieRows${ei}">
           ${Array.from({length:ex.series},(_,si)=>{
             // Use per-series last kg if available, fallback to maxKg
@@ -2867,6 +2917,7 @@ function toggleSerie(ei, si, totalSeries) {
 let restInterval = null;
 let restTotal = 60;
 let restRemaining = 60;
+let restStartTime = 0;
 
 function startRest(seconds) {
   stopRest();
@@ -2879,8 +2930,11 @@ function startRest(seconds) {
   fill.style.transition = 'none';
   fill.style.width = '100%';
 
+  // Track start time for accuracy when phone locks/unlocks
+  restStartTime = Date.now();
   restInterval = setInterval(() => {
-    restRemaining--;
+    const elapsed = Math.floor((Date.now() - restStartTime) / 1000);
+    restRemaining = Math.max(0, restTotal - elapsed);
     time.textContent = restRemaining;
     const pct = (restRemaining / restTotal) * 100;
     fill.style.transition = 'width 1s linear';
@@ -3025,8 +3079,8 @@ function saveSession() {
   allSessions.push(sess);
   db.sessions.set(allSessions);
   if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 120]);
-  // Auto-sync to Drive if connected
-  if (gdriveToken) setTimeout(() => gdriveUpload(true), 1000);
+  // Auto-sync to Drive if connected (fully silent — never interrupts post-workout flow)
+  if (gdriveToken) setTimeout(() => gdriveUpload(true).catch(()=>{}), 1500);
 
   // Show quick summary overlay
   showQuickSummary(sess, completed, skipped, newPRs, curVol, prevVol, cal);
@@ -4374,19 +4428,20 @@ function initSerieSwipe(ei, si, totalSeries) {
   row.addEventListener('touchmove', e => {
     const dx = e.touches[0].clientX - startX;
     const dy = e.touches[0].clientY - startY;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+    // Require clearly horizontal movement (dx must be 2.5x dy) to avoid accidental swipes while scrolling
+    if (Math.abs(dx) > Math.abs(dy) * 2.5 && Math.abs(dx) > 16) {
       moved = true;
-      // Visual feedback: slight translate
-      const pct = Math.min(dx / 80, 1);
+      const pct = Math.min(dx / 100, 1);
       if (dx > 0) row.style.background = `rgba(212,245,60,${pct * 0.12})`;
     }
   }, { passive: true });
 
   row.addEventListener('touchend', e => {
     const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
     row.style.background = '';
-    if (moved && dx > 55) {
-      // Swipe right → toggle done
+    // Require 80px horizontal swipe AND clearly not a scroll
+    if (moved && dx > 80 && Math.abs(dx) > Math.abs(dy) * 2.5) {
       toggleSerie(ei, si, totalSeries);
     }
   }, { passive: true });
