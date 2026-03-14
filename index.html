@@ -335,8 +335,8 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .last-kg-hint{font-size:11px;color:var(--muted);padding:4px 0 8px;}
 
 /* Rest timer */
-.rest-bar{position:fixed;bottom:calc(var(--nav-h) + 0px);left:0;right:0;background:#1a2a00;border-top:2px solid var(--accent);z-index:40;padding:10px 16px;display:flex;align-items:center;gap:12px;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
-.rest-bar.show{transform:translateY(0)}
+.rest-bar{position:fixed;bottom:0;left:0;right:0;background:#1a2a00;border-top:2px solid var(--accent);z-index:40;padding:10px 16px 24px;display:none;align-items:center;gap:12px;}
+.rest-bar.show{display:flex;}
 .rest-progress{flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
 .rest-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 1s linear}
 .rest-time{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);width:48px;text-align:right}
@@ -1741,8 +1741,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.8.2';
+const APP_VERSION = '3.8.3';
 // Changelog:
+// 3.8.3 — Fix rest bar visible al entrar al workout
 // 3.8.2 — Fix scroll dinámico al siguiente ejercicio
 // 3.8.1 — Ejercicio completado verde, RPE inline quitado, notas fix, extra live DOM
 // 3.8.0 — Workout: RPE sheet, timed exercises, warmup done, extra a rutina, sound timer
@@ -3276,7 +3277,6 @@ function startRest(seconds) {
   const fill = document.getElementById('restFill');
   const time = document.getElementById('restTime');
   bar.classList.add('show');
-  fill.style.transition = 'none';
   fill.style.width = '100%';
 
   // Track start time for accuracy when phone locks/unlocks
@@ -3286,7 +3286,6 @@ function startRest(seconds) {
     restRemaining = Math.max(0, restTotal - elapsed);
     time.textContent = restRemaining;
     const pct = (restRemaining / restTotal) * 100;
-    fill.style.transition = 'width 1s linear';
     fill.style.width = pct + '%';
     if (restRemaining <= 0) {
       stopRest();
