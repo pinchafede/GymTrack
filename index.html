@@ -436,7 +436,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 
 <!-- ═══ HOME ═══ -->
 <div id="s-home" class="screen">
-  <div class="home-hero"><h1 id="homeTitle">GYMTRACK</h1><p id="homeSubtitle">Tu rutina de hoy</p></div>
+  <div class="home-hero" onclick="navTo('profile')" style="cursor:pointer;"><h1 id="homeTitle">GYMTRACK</h1><p id="homeSubtitle">Tu rutina de hoy</p></div>
   <div class="stats-row">
     <div class="stat-box"><div class="stat-num" id="hTotal">0</div><div class="stat-lbl">sesiones</div></div>
     <div class="stat-box"><div class="stat-num" id="hWeek">0</div><div class="stat-lbl">esta semana</div></div>
@@ -563,13 +563,13 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   <div class="card">
     <div class="list-row" onclick="navTo('supplements')"><div style="font-size:14px;">💊 Gestionar suplementos</div><div style="color:var(--muted)">›</div></div>
   </div>
-  <div class="sec-label">Progreso</div>
+  <div class="sec-label">Mi perfil</div>
   <div class="card">
-    <div class="list-row" onclick="openPhotos()"><div style="font-size:14px;">📸 Fotos de progreso</div><div style="color:var(--muted)">›</div></div>
+    <div class="list-row" onclick="navTo('profile')"><div style="font-size:14px;">👤 Perfil y progreso físico</div><div style="color:var(--muted)">›</div></div>
   </div>
   <div class="sec-label">Configuración</div>
   <div class="card">
-    <div class="list-row" onclick="navTo('settings')"><div style="font-size:14px;">⚙️ Perfil y ajustes</div><div style="color:var(--muted)">›</div></div>
+    <div class="list-row" onclick="navTo('settings')"><div style="font-size:14px;">⚙️ Ajustes</div><div style="color:var(--muted)">›</div></div>
   </div>
 </div>
 
@@ -669,11 +669,11 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   <div id="suppList" style="padding:12px 16px 32px;"></div>
 </div>
 
-<!-- ═══ SETTINGS ═══ -->
-<div id="s-settings" class="screen">
-  <div class="page-header"><div class="btn-back" onclick="navBack()">‹</div><div class="page-title">AJUSTES</div></div>
+<!-- ═══ PROFILE ═══ -->
+<div id="s-profile" class="screen">
+  <div class="page-header"><div class="btn-back" onclick="navBack()">‹</div><div class="page-title">MI PERFIL</div></div>
   <div style="padding:4px 0 40px;">
-    <div class="sec-label">Perfil</div>
+    <div class="sec-label">Datos personales</div>
     <div class="settings-section">
       <div class="settings-row"><div><div class="settings-row-title">Nombre</div></div><input class="input-f sm" type="text" id="cfgNombre" style="width:140px;" placeholder="Tu nombre"></div>
       <div class="settings-row"><div><div class="settings-row-title">Peso (kg)</div></div><input class="input-f sm" type="number" inputmode="decimal" step="0.5" id="cfgPeso" style="width:90px;" oninput="updateBMR()"></div>
@@ -696,6 +696,24 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       </div>
       <div id="weightList"></div>
     </div>
+    <div class="sec-label">Fotos de progreso</div>
+    <div class="settings-section">
+      <div class="settings-row" style="cursor:pointer;" onclick="openPhotos()">
+        <div><div class="settings-row-title">📸 Ver mis fotos</div><div class="settings-row-sub">Galería de progreso</div></div>
+        <div style="color:var(--muted);">›</div>
+      </div>
+      <div class="settings-row" style="cursor:pointer;" onclick="setupPin()">
+        <div><div class="settings-row-title" id="pinSettingsTitle">🔒 Configurar PIN</div><div class="settings-row-sub">Protege el acceso a tus fotos</div></div>
+        <div style="color:var(--muted);">›</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div id="s-settings" class="screen">
+  <div class="page-header"><div class="btn-back" onclick="navBack()">‹</div><div class="page-title">AJUSTES</div></div>
+  <div style="padding:4px 0 40px;">
 
     <div class="sec-label">Notificaciones de suplementos</div>
     <div class="settings-section">
@@ -754,13 +772,6 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
           </div>
           <span style="font-size:12px;color:var(--muted);">seg</span>
         </div>
-      </div>
-    </div>
-    <div class="sec-label">Fotos de progreso</div>
-    <div class="settings-section">
-      <div class="settings-row" style="cursor:pointer;" onclick="setupPin()">
-        <div><div class="settings-row-title" id="pinSettingsTitle">🔒 Configurar PIN</div><div class="settings-row-sub">Protege el acceso a tus fotos</div></div>
-        <div style="color:var(--muted);">›</div>
       </div>
     </div>
     <div class="sec-label">Sincronización con Google Drive</div>
@@ -986,18 +997,16 @@ let currentViewPhotoTs = null;
 function openPhotos() {
   const pin = db.pinCfg.get();
   if (pin.hash) {
-    // Has PIN — ask for it
     showPin('unlock', () => {
-      navTo('photos');
       renderPhotoGrid();
+      snapTo('photos');
     });
   } else {
-    // No PIN yet — go straight in, prompt to set one
-    navTo('photos');
     renderPhotoGrid();
+    snapTo('photos');
     setTimeout(() => {
       if (!db.pinCfg.get().hash) {
-        toast('Tip: configurá un PIN en Ajustes para proteger tus fotos');
+        toast('Tip: configurá un PIN en Ajustes del perfil para proteger tus fotos');
       }
     }, 800);
   }
@@ -1619,8 +1628,9 @@ async function gdriveDownload() {
 // ═══════════════════════════════════════════════
 // VERSION
 // ═══════════════════════════════════════════════
-const APP_VERSION = '3.4.2';
+const APP_VERSION = '3.5.0';
 // Changelog:
+// 3.5.0 — Pantalla de Perfil separada, fix fotos
 // 3.4.2 — Fix confirmación PIN
 // 3.4.1 — Fix teclado PIN
 // 3.4.0 — Google Drive sync automático
@@ -1815,6 +1825,7 @@ function navTo(id, back) {
   if (id==='sports') renderSports();
   if (id==='supplements') renderSupplements();
   if (id==='settings') loadSettings();
+  if (id==='profile') loadProfile();
   if (id==='photos') renderPhotoGrid();
 
   // Snap all screens to clean state
@@ -4036,6 +4047,18 @@ function adjRest(type, delta) {
   db.restCfg.set(rc);
   document.getElementById(elId).textContent = rc[key];
   toast(`Descanso ${type==='series'?'entre series':'al terminar'}: ${rc[key]}s`);
+}
+
+function loadProfile() {
+  const p = db.profile.get();
+  if(p.name)   { const el = document.getElementById('cfgNombre');   if(el) el.value = p.name; }
+  if(p.peso)   { const el = document.getElementById('cfgPeso');     if(el) el.value = p.peso; }
+  if(p.altura) { const el = document.getElementById('cfgAltura');   if(el) el.value = p.altura; }
+  if(p.edad)   { const el = document.getElementById('cfgEdad');     if(el) el.value = p.edad; }
+  if(p.sexo)   { const el = document.getElementById('cfgSexo');     if(el) el.value = p.sexo; }
+  updateBMR();
+  renderWeightSection();
+  updatePinSettingsTitle();
 }
 
 function loadSettings() {
