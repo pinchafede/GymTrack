@@ -654,6 +654,24 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   </div>
 </div>
 
+<!-- Session edit overlay -->
+<div class="overlay" id="sessEditOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet" style="max-height:88vh;overflow-y:auto;">
+    <div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;">EDITAR SESIÓN</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="sessEditTitle">—</div>
+      </div>
+      <div class="sheet-close" onclick="document.getElementById('sessEditOverlay').classList.remove('open')">✕</div>
+    </div>
+    <div id="sessEditBody" style="padding:0 18px 20px;"></div>
+    <div style="padding:0 18px 24px;">
+      <button class="btn-p" style="width:100%;" onclick="saveSessionEdit()">GUARDAR CAMBIOS</button>
+    </div>
+  </div>
+</div>
+
 <!-- Photo source picker sheet -->
 <div class="overlay" id="photoPickerOverlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="sheet">
@@ -961,6 +979,17 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     <div style="padding:18px;">
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nombre del día</label>
       <input id="deNombre" class="input-f" type="text" placeholder="Ej: Espalda · Tríceps" style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Día de la semana (opcional)</label>
+      <select id="deWeekday" class="input-f" style="margin-bottom:14px;cursor:pointer;">
+        <option value="">— Sin asignar —</option>
+        <option value="0">Lunes</option>
+        <option value="1">Martes</option>
+        <option value="2">Miércoles</option>
+        <option value="3">Jueves</option>
+        <option value="4">Viernes</option>
+        <option value="5">Sábado</option>
+        <option value="6">Domingo</option>
+      </select>
       <div id="deExList" style="margin-bottom:14px;"></div>
       <button onclick="openPredefForDay()" class="btn-g accent" style="width:100%;justify-content:center;margin-bottom:8px;">+ Agregar ejercicio</button>
       <button onclick="saveDayEdit()" class="btn-p" style="font-size:18px;">GUARDAR DÍA</button>
@@ -1741,8 +1770,10 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.9.2';
+const APP_VERSION = '3.9.4';
 // Changelog:
+// 3.9.4 — Día recomendado por semana, editar sesión, 💡 119 ejercicios
+// 3.9.3 — Fix fechas UTC, duración sesión, info ejercicios calistenia
 // 3.9.2 — Revertir ExerciseDB, limpiar API
 // 3.8.4 — Biblioteca ejercicios ampliada + Calistenia
 // 3.8.3 — Fix rest bar visible al entrar al workout
@@ -2016,6 +2047,77 @@ const EX_INFO = {
   "Cinta (cardio)":                {p:["Cuádriceps","Glúteos","Isquiotibiales"],s:["Core","Gemelos"],desc:"Caminata o trote en cinta. Configurá tiempo, velocidad e inclinación.",tips:["Inclinación mínima de 1% para simular exterior","Postura erguida","Ajustá la velocidad gradualmente"],err:"Sujetarse de los pasamanos reduce el gasto calórico y afecta la postura."},
   "Burpees":                       {p:["Todo el cuerpo"],s:["Core","Hombros","Cuádriceps"],desc:"Desde de pie, bajá a plancha, hacé una flexión, volvé y saltá con los brazos arriba.",tips:["Ritmo constante más que velocidad","Core activado en la plancha","Aterrizaje suave"],err:"Perder la posición de plancha por cansancio lesiona la espalda baja."},
   "Rueda abdominal":               {p:["Recto abdominal","Core profundo"],s:["Dorsales","Hombros"],desc:"Desde rodillas, extendé la rueda hacia adelante manteniéndote cerca del suelo y volvé.",tips:["Core apretado durante todo el movimiento","Extendé hasta donde puedas controlar","Volvé lento"],err:"Dejar caer las caderas al extenderse comprime la columna lumbar."},
+  "Dominadas (pull-up)":           {p:["Dorsal ancho","Bíceps"],s:["Romboides","Core"],desc:"Colgado de la barra con agarre prono, jalá el cuerpo hasta que el mentón supere la barra.",tips:["Escápulas abajo y atrás antes de jalar","Codos hacia el suelo","Bajá completamente"],err:"No completar el rango o usar impulso de cadera reduce el trabajo del dorsal."},
+  "Dominadas supinas (chin-up)":   {p:["Bíceps","Dorsal ancho"],s:["Romboides","Core"],desc:"Agarre supino (palmas hacia vos), jalá hasta que el mentón supere la barra.",tips:["Rango completo","Codos cerca del cuerpo","Contraé al tope"],err:"Agarre demasiado ancho limita el trabajo del bíceps."},
+  "Muscle up":                     {p:["Dorsal ancho","Tríceps","Pecho"],s:["Bíceps","Core"],desc:"Desde colgado, jalá explosivamente y al pasar la barra empujá para quedar en fondos.",tips:["Agarre falso (pulgar encima)","Empuje explosivo","Practica la transición por separado"],err:"Saltar sin tirar correctamente genera lesiones en muñecas y hombros."},
+  "Fondos en paralelas (dips)":    {p:["Pecho","Tríceps","Deltoides anterior"],s:["Core","Hombros"],desc:"Suspendido en paralelas, bajá flexionando los codos hasta 90°, empujá hacia arriba.",tips:["Torso inclinado = más pecho, erecto = más tríceps","Codos semi-pegados","Bajada controlada"],err:"Bajar demasiado puede lesionar el manguito rotador."},
+  "Flexiones":                     {p:["Pecho","Tríceps","Deltoides anterior"],s:["Core","Serrato anterior"],desc:"Desde plancha alta, bajá el pecho hasta casi tocar el suelo y empujá hacia arriba.",tips:["Cuerpo en línea recta","Codos a 45° del torso","Bajada completa"],err:"Dejar caer las caderas o levantarlas quita tensión del pecho."},
+  "Flexiones diamante":            {p:["Tríceps","Pecho esternal"],s:["Deltoides anterior"],desc:"Manos juntas formando un diamante bajo el pecho. Bajá con los codos pegados.",tips:["Manos bajo el esternón","Codos muy pegados","Rango completo"],err:"Abrir los codos elimina la ventaja del agarre cerrado."},
+  "Flexiones declinadas":          {p:["Pecho superior","Deltoides anterior"],s:["Tríceps","Core"],desc:"Pies elevados, manos en el suelo. Bajá el pecho controlando y empujá hacia arriba.",tips:["Cuanto más alto los pies, más trabaja el pecho superior","Core activo","Cuerpo recto"],err:"Flexionar la cadera en lugar de mantener línea recta pierde eficacia."},
+  "Pike push-up":                  {p:["Deltoides","Tríceps"],s:["Core","Trapecio"],desc:"En V invertida, doblá los codos hasta que la cabeza casi toque el suelo y empujá.",tips:["Caderas altas","Cuanto más vertical, más hombros","Codos mirando hacia atrás"],err:"Caer con las caderas convierte el movimiento en una flexión normal."},
+  "Australian pull-up (remo invertido)": {p:["Dorsal ancho","Romboides","Bíceps"],s:["Core"],desc:"Bajo una barra baja, colgado con el cuerpo recto, jalá el pecho hacia la barra.",tips:["Cuerpo rígido","Retracción escapular al subir","Codos cerca del cuerpo"],err:"Dejar que las caderas caigan reduce el trabajo de la espalda."},
+  "Sentadilla pistol":             {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales","Core","Tobillo"],desc:"Sobre una pierna, bajá hasta el fondo con la otra extendida al frente. Empujá para subir.",tips:["Talón en el suelo siempre","Rodilla sigue la línea del pie","Bajada muy lenta al principio"],err:"Levantar el talón indica falta de movilidad de tobillo."},
+  "Handstand (parada de manos)":   {p:["Deltoides","Core","Trapecio"],s:["Tríceps","Antebrazos"],desc:"De pie sobre las manos, cuerpo completamente extendido. Comenzá contra la pared.",tips:["Dedos bien abiertos empujando el suelo","Mirada al suelo entre las manos","Core y glúteos apretados"],err:"Arquear la espalda baja hace la posición inestable."},
+  "Handstand push-up":             {p:["Deltoides","Tríceps"],s:["Trapecio","Core"],desc:"Parado de manos contra la pared, doblá los codos hasta que la cabeza toque el suelo y empujá.",tips:["Empieza con rango parcial","Codos ligeramente abiertos","Core firme"],err:"Intentarlo sin tener la fuerza base de la parada de manos."},
+  "Plancha (isométrico)":          {p:["Core","Transverso abdominal"],s:["Deltoides","Glúteos","Espinales"],desc:"Apoyado en antebrazos y puntillas, mantenés el cuerpo rígido en línea recta.",tips:["Empujá el suelo con los codos","Pelvis neutral","Respirá de forma continua"],err:"Dejar caer o elevar las caderas quita tensión del core."},
+  "Plancha lateral (isométrico)":  {p:["Oblicuos","Core lateral"],s:["Glúteo medio","Hombros"],desc:"Apoyado en un antebrazo y el lateral del pie, mantenés el cuerpo elevado en línea recta.",tips:["Cadera alta","No rotar el torso","Respiración constante"],err:"Dejar caer la cadera elimina el trabajo de los oblicuos."},
+  "Hollow body (isométrico)":      {p:["Core","Transverso","Recto abdominal"],s:["Flexores de cadera"],desc:"Boca arriba, brazos sobre la cabeza, piernas elevadas. Lumbar pegada al suelo.",tips:["Lumbar pegada al suelo siempre","Piernas más altas si es difícil","Brazos cerca de la cabeza"],err:"Despegar la zona lumbar elimina la posición."},
+  "Nordic curl":                   {p:["Isquiotibiales"],s:["Glúteos","Core"],desc:"Rodillas en el suelo sujetas, bajá lentamente hacia adelante frenando con los isquiotibiales.",tips:["Bajada muy lenta","Usá las manos para frenar al inicio","Es principalmente excéntrico"],err:"Dejar caer el cuerpo sin resistir el movimiento pierde el beneficio."},
+  "Glute bridge":                  {p:["Glúteos","Isquiotibiales"],s:["Core","Espinales"],desc:"Boca arriba con rodillas dobladas, elevá las caderas apretando los glúteos.",tips:["Apretá los glúteos al máximo arriba","Pelvis neutral","Pies a la altura de las rodillas"],err:"Hiperextender la columna en lugar de elevar con los glúteos carga la zona lumbar."},
+  "Single leg glute bridge":       {p:["Glúteos","Isquiotibiales"],s:["Core","Aductores"],desc:"Igual al glute bridge pero con una pierna extendida. Mayor demanda por lado.",tips:["Cadera nivelada","Apretá el glúteo de la pierna de apoyo"],err:"Dejar que la cadera del lado libre caiga pierde la alineación."},
+  "Face pull":                     {p:["Deltoides posterior","Manguito rotador"],s:["Trapecio medio","Romboides"],desc:"Polea alta, jalá hacia la cara con codos altos y abrí las manos hacia afuera al final.",tips:["Codos por encima de los hombros","Abrí al máximo al final","Peso liviano y técnica perfecta"],err:"Jalar con los codos bajos convierte el movimiento en un remo."},
+  "Hiperextensiones":              {p:["Erectores espinales","Glúteos"],s:["Isquiotibiales","Core"],desc:"En banco romano, con el cuerpo doblado hacia abajo, subí hasta quedar en línea recta.",tips:["No hiperextiendas más allá de horizontal","Contracción en glúteos","Movimiento controlado"],err:"Subir demasiado hiperextiende la columna lumbar."},
+  "Vuelos laterales mancuernas":   {p:["Deltoides lateral"],s:["Trapecio superior","Serrato"],desc:"De pie, elevá las mancuernas hacia los costados hasta la altura de los hombros.",tips:["Codos levemente doblados","No subas más allá de los hombros","Controlá la bajada"],err:"Usar impulso del torso activa el trapecio en lugar del deltoides lateral."},
+  "Empuje militar barra":          {p:["Deltoides anterior y lateral","Tríceps"],s:["Trapecio","Core"],desc:"De pie o sentado, empujá la barra desde los hombros hacia arriba.",tips:["Core activo","No arquees la espalda","Variante sentado más aislamiento"],err:"Arquear la zona lumbar para asistir el movimiento carga la columna."},
+  "Curl concentrado":              {p:["Bíceps"],s:["Braquial"],desc:"Sentado, codo apoyado en el muslo, flexioná la mancuerna hacia el hombro.",tips:["Codo quieto en el muslo","Gira levemente la muñeca al subir","Bajada lenta"],err:"Mover el codo del apoyo quita el aislamiento del bíceps."},
+  "Remo en polea baja":            {p:["Dorsal ancho","Romboides","Trapecio medio"],s:["Bíceps","Deltoides posterior"],desc:"Sentado frente a la polea baja, jalá el agarre hacia el abdomen con torso erecto.",tips:["Retracción escapular al final","Codos cerca del cuerpo","No inclinés el torso"],err:"Usar el torso como impulso convierte el ejercicio en un remo con espalda."},
+  "Encogimientos de hombros (trapecio)": {p:["Trapecio superior"],s:["Elevador de la escápula"],desc:"Con mancuernas o barra, elevá los hombros hacia las orejas con los brazos rectos.",tips:["Subida máxima","No rotes los hombros","Bajada controlada"],err:"Rotar los hombros puede lesionar el manguito rotador."},
+  "Hip thrust":                    {p:["Glúteos","Isquiotibiales"],s:["Core","Aductores"],desc:"Espalda alta en banco, barra sobre las caderas. Empujá las caderas hacia arriba apretando los glúteos.",tips:["Barbilla al pecho","Rodillas a 90° arriba","Apretá glúteos al máximo"],err:"Hiperextender la columna en lugar de rotar la pelvis no activa los glúteos correctamente."},
+  "Peso muerto rumano":            {p:["Isquiotibiales","Glúteos"],s:["Espinales","Core"],desc:"Con barra o mancuernas, bajá deslizando por las piernas con rodillas levemente flexionadas.",tips:["Espalda plana siempre","Empujá las caderas hacia atrás","La barra cerca de las piernas"],err:"Redondear la espalda baja con peso es la principal causa de lesión."},
+  "Sentadilla búlgara":            {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales","Core","Equilibrio"],desc:"Pie trasero elevado en banco, bajá la rodilla trasera hacia el suelo y empujá con la pierna delantera.",tips:["Pie delantero suficientemente adelante","Torso levemente inclinado","Bajada controlada"],err:"Poner el pie demasiado cerca del banco genera presión en la rodilla trasera."},
+  "Curl con barra":                {p:["Bíceps"],s:["Braquial","Braquiorradial"],desc:"De pie, barra en agarre supino, flexioná los codos llevando la barra hacia los hombros.",tips:["Codos pegados al cuerpo","No uses la espalda","Bajada controlada"],err:"Balancear el torso usa la espalda en lugar del bíceps."},
+  "Curl predicador":               {p:["Bíceps (cabeza corta)"],s:["Braquial"],desc:"Apoyado en el banco predicador, flexioná y extendé sin separar los brazos del apoyo.",tips:["Extensión casi completa abajo","No des impulso","Contracción máxima arriba"],err:"Separar los brazos del banco en la bajada pierde el aislamiento."},
+  "Dragon flag":                   {p:["Core","Recto abdominal"],s:["Deltoides","Espinales"],desc:"Agarrando un banco por sobre la cabeza, levantás el cuerpo recto desde los hombros.",tips:["Cuerpo completamente rígido","Bajada lenta es la clave","Comenzá con rango parcial"],err:"Doblar las caderas pierde la esencia del ejercicio."},
+  "L-sit":                         {p:["Core","Flexores de cadera"],s:["Tríceps","Hombros"],desc:"Suspendido en paralelas o en el suelo, elevás las piernas paralelas al suelo.",tips:["Piernas completamente extendidas","Empujá el suelo para elevar","Comenzá con rodillas dobladas"],err:"Permitir que las piernas caigan por debajo de la horizontal pierde la posición."},
+  "Dead bug":                      {p:["Core","Transverso abdominal"],s:["Flexores de cadera","Espinales"],desc:"Boca arriba, brazos al techo y piernas a 90°. Bajá brazo y pierna opuestos manteniendo la lumbar en el suelo.",tips:["Zona lumbar pegada al suelo siempre","Movimiento lento","Exhalá al bajar"],err:"Arquear la zona lumbar al bajar elimina la activación del core."},
+  "Russian twist":                 {p:["Oblicuos","Core"],s:["Recto abdominal","Flexores de cadera"],desc:"Sentado con el torso inclinado, rotá el tronco de lado a lado con o sin peso.",tips:["Pies elevados para más dificultad","Rotación viene del torso","Controlá el movimiento"],err:"Mover los brazos sin rotar el torso activa poco los oblicuos."},
+  "Pallof press":                  {p:["Core","Oblicuos"],s:["Hombros","Deltoides"],desc:"De pie al lado de la polea, empujá el agarre al frente y volvé resistiendo la rotación.",tips:["Cuerpo perpendicular a la polea","Sin rotar el torso","Controlá la vuelta"],err:"Permitir que la polea rote el cuerpo pierde el trabajo de anti-rotación."},
+  "Box jumps":                     {p:["Cuádriceps","Glúteos","Explosividad"],s:["Gemelos","Core"],desc:"Saltá sobre un cajón con los dos pies, aterrizá en flexión y bajá controlado.",tips:["Aterrizá con rodillas flexionadas","Brazos ayudan en el impulso","Bajá con cuidado"],err:"Aterrizar con las rodillas rectas genera impacto articular."},
+  "Mountain climbers":             {p:["Core","Cardio"],s:["Hombros","Flexores de cadera"],desc:"Desde plancha alta, alternás llevando las rodillas al pecho rápidamente.",tips:["Cadera nivelada","Core activo","Ritmo constante"],err:"Elevar las caderas quita el trabajo del core."},
+  "Jumping jacks":                 {p:["Cardio","Abductores"],s:["Hombros","Gemelos"],desc:"Saltando, abrís piernas y brazos simultáneamente y volvés a la posición inicial.",tips:["Aterrizá suave","Ritmo constante","Brazos extendidos al subir"],err:"Aterrizaje brusco genera impacto innecesario."},
+  "Plancha lateral":               {p:["Oblicuos","Core lateral"],s:["Glúteo medio","Hombros"],desc:"Apoyado en un antebrazo y el lateral del pie, mantenés el cuerpo elevado en línea recta.",tips:["Cadera alta","No rotar el torso","Respiración constante"],err:"Dejar caer la cadera elimina el trabajo de los oblicuos."},
+  "Rollout con barra":             {p:["Core","Dorsal ancho"],s:["Tríceps","Hombros"],desc:"Arrodillado con la barra en el suelo, rodá hacia adelante hasta casi tocar el suelo y volvé.",tips:["Activá el core antes de arrancar","Bajada lenta","No arquées la espalda"],err:"Perder la tensión lumbar puede lesionar la zona baja."},
+  "Bicicleta estática":            {p:["Cuádriceps","Isquiotibiales"],s:["Glúteos","Gemelos"],desc:"Cardio de bajo impacto. Ajustá la resistencia y mantené una cadencia constante.",tips:["Altura del asiento: rodilla levemente flexionada al fondo","Postura erguida","Variá la resistencia para intervalos"],err:"Asiento demasiado bajo genera presión en las rodillas."},
+  "Remo ergómetro":                {p:["Espalda","Piernas","Core"],s:["Bíceps","Hombros"],desc:"Cardio de cuerpo completo. Secuencia: piernas → inclinación del torso → brazos.",tips:["Empujá con las piernas primero","Incliná el torso antes de jalar","Regresá en orden inverso"],err:"Jalar con los brazos antes de extender las piernas pierde potencia y carga la espalda."},
+  "Salto a la soga":               {p:["Gemelos","Cardio"],s:["Hombros","Coordinación"],desc:"Saltá la cuerda manteniendo un ritmo constante. Aterrizá suave en las puntillas.",tips:["Las muñecas hacen el movimiento, no los brazos","Saltos pequeños","Aterrizá suave"],err:"Saltar demasiado alto cansa más sin beneficio adicional."},
+  "Empuje de pecho mancuernas (banco inclinado)": {p:["Pecho superior","Deltoides anterior"],s:["Tríceps","Serrato"],desc:"En banco inclinado 30-45°, empujá las mancuernas desde los hombros hacia arriba.",tips:["30-45° para máximo pecho superior","Codos a 75° del torso","Controlá la bajada"],err:"Ángulo demasiado inclinado activa más el deltoides que el pecho."},
+  "Empuje de pecho mancuernas (banco declinado)": {p:["Pecho inferior"],s:["Tríceps","Deltoides anterior"],desc:"En banco declinado, empujá las mancuernas desde los hombros hacia arriba.",tips:["Asegurate bien en el banco","Rango completo","Mismo movimiento que banco plano"],err:"No controlar la bajada con el banco declinado puede ser peligroso."},
+  "Aperturas en máquina (peck deck)": {p:["Pecho","Deltoides anterior"],s:["Bíceps","Serrato"],desc:"Sentado, cerrá los brazos hacia el centro contrayendo el pecho.",tips:["Contracción máxima al cerrar","No dejes que el peso te jale abruptamente","Codos levemente flexionados"],err:"Abrirse demasiado puede sobrecargar el manguito rotador."},
+  "Pullover en polea":             {p:["Dorsal ancho","Pecho"],s:["Tríceps","Core"],desc:"De pie frente a la polea alta, jalá el agarre hacia los muslos con brazos casi extendidos.",tips:["Ligera flexión de cadera","Brazos casi rectos","Controlá la vuelta"],err:"Flexionar demasiado los codos convierte el movimiento en un jalón."},
+  "Empuje de hombros mancuernas":  {p:["Deltoides anterior y lateral","Tríceps"],s:["Trapecio","Core"],desc:"Sentado o de pie, empujá las mancuernas desde los hombros hacia arriba.",tips:["No bloquées los codos arriba","Core activo","Bajada controlada"],err:"Arquear la zona lumbar para asistir el movimiento carga la columna."},
+  "Rotación externa con mancuerna": {p:["Infraespinoso","Redondo menor"],s:["Deltoides posterior"],desc:"Codo a 90° apoyado en el cuerpo o banco, rotá el antebrazo hacia afuera.",tips:["Peso muy liviano","Rango completo","Movimiento lento y controlado"],err:"Usar peso excesivo activa los deltoides en lugar del manguito rotador."},
+  "Elevación frontal mancuernas":  {p:["Deltoides anterior"],s:["Trapecio","Pecho superior"],desc:"De pie, elevá las mancuernas hacia adelante hasta la altura de los hombros con codos casi extendidos.",tips:["No subas más allá de los hombros","Controlá la bajada","Alternado o simultáneo"],err:"Usar el torso para impulsar activa la espalda en lugar del deltoides."},
+  "Curl en máquina":               {p:["Bíceps"],s:["Braquial","Braquiorradial"],desc:"Sentado en la máquina, flexioná los codos siguiendo la guía del equipo.",tips:["Rango completo","Contracción máxima arriba","Bajada lenta"],err:"Usar impulso del torso reduce el estímulo del bíceps."},
+  "Tríceps con polea (agarre supino)": {p:["Tríceps"],s:["Antebrazo"],desc:"Igual al agarre prono pero con las palmas hacia arriba. Activa más la cabeza larga.",tips:["Codos fijos","Extensión completa","Controlá la vuelta"],err:"Separar los codos activa los hombros y reduce la carga."},
+  "Fondos en paralelas":           {p:["Tríceps","Pecho","Deltoides anterior"],s:["Core"],desc:"Suspendido en paralelas, bajá flexionando los codos y empujá hacia arriba.",tips:["Torso erecto = más tríceps","Inclinate = más pecho","Bajada hasta 90°"],err:"Bajar demasiado puede lesionar el manguito rotador."},
+  "Tríceps en polea con cuerda":   {p:["Tríceps"],s:["Antebrazo"],desc:"Con agarre de cuerda, extendé los antebrazos hacia abajo abriendo las manos al final.",tips:["Abrí las manos al terminar","Codos fijos","Bajada controlada"],err:"No abrir las manos al final reduce el rango de movimiento."},
+  "Estocada con mancuernas":       {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales","Core","Equilibrio"],desc:"Un pie adelante, bajá la rodilla trasera hacia el suelo manteniendo el torso erecto.",tips:["Rodilla delantera no sobrepase el pie","Paso largo","Apretá el glúteo al subir"],err:"Inclinar el torso hacia adelante carga la zona lumbar."},
+  "Abductor en máquina":           {p:["Glúteo medio y menor","TFL"],s:["Glúteo mayor"],desc:"Sentado, empujá las rodillas hacia afuera contra la resistencia de la máquina.",tips:["Movimiento completo","Contracción al final","No uses impulso"],err:"Inclinar el torso elimina el aislamiento de los abductores."},
+  "Aductor en máquina":            {p:["Aductores"],s:["Gracilis","Pectíneo"],desc:"Sentado, cerrá las rodillas contra la resistencia de la máquina.",tips:["Rango completo","Cierre lento y controlado","No uses impulso"],err:"Mover demasiado rápido elimina el trabajo muscular."},
+  "Elevación de gemelos sentado":  {p:["Sóleo"],s:["Gastrocnemio"],desc:"Sentado con el rodillo sobre los muslos, subí en puntas y bajá completamente.",tips:["Rodillas a 90°","Rango máximo","Contracción al tope"],err:"No completar el rango reduce el estímulo del sóleo."},
+  "Hollow body":                   {p:["Core","Transverso","Recto abdominal"],s:["Flexores de cadera"],desc:"Boca arriba, brazos sobre la cabeza, piernas extendidas elevadas. Lumbar pegada al suelo.",tips:["Lumbar pegada al suelo siempre","Piernas más altas si es difícil","Brazos cerca de la cabeza"],err:"Despegar la zona lumbar elimina la posición hollow."},
+  "Flexiones arqueras":            {p:["Pecho (unilateral)","Tríceps"],s:["Deltoides anterior","Core"],desc:"Una mano extendida al costado, bajá hacia el lado de la mano flexionada. Alternás lados.",tips:["Mano extendida apoya suavemente","Progresión hacia flexión a un brazo","Rango completo"],err:"No controlar el descenso hacia el lado puede generar desequilibrio."},
+  "Bulgarian split squat (peso corporal)": {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales","Core","Equilibrio"],desc:"Pie trasero elevado en banco, bajá la rodilla trasera hacia el suelo y empujá con la pierna delantera.",tips:["Pie delantero bien adelante","Torso levemente inclinado","Bajada controlada"],err:"Poner el pie demasiado cerca genera presión en la rodilla trasera."},
+  "Zancadas":                      {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales","Core"],desc:"Un pie adelante, bajá la rodilla trasera hacia el suelo y volvé a la posición inicial.",tips:["Paso largo","Torso erecto","Rodilla delantera no sobrepasa el pie"],err:"Paso corto genera demasiada presión en la rodilla delantera."},
+  "Saltos al cajón":               {p:["Cuádriceps","Glúteos","Explosividad"],s:["Gemelos","Core"],desc:"Saltá sobre un cajón con los dos pies, aterrizá en flexión y bajá controlado.",tips:["Aterrizá con rodillas flexionadas","Brazos ayudan en el impulso","Bajá de costado o escalón"],err:"Aterrizar con las rodillas rectas genera impacto articular."},
+  "Planche lean":                  {p:["Deltoides anterior","Core","Serrato"],s:["Tríceps","Pecho"],desc:"En posición de plancha alta, incliná el cuerpo hacia adelante apoyando en los nudillos. Progresión hacia la planche.",tips:["Dedos mirando hacia atrás","Inclinación progresiva","Core muy activo"],err:"Inclinar sin la activación escapular correcta carga los hombros."},
+  "Front lever (progresiones)":    {p:["Dorsal ancho","Core","Recto abdominal"],s:["Bíceps","Hombros"],desc:"Suspendido en la barra, mantenés el cuerpo horizontal con los brazos extendidos. Trabajá progresiones: rodillas dobladas → una pierna → completo.",tips:["Escápulas en depresión y retracción","Core muy apretado","Progresá lentamente"],err:"Intentar el full front lever sin progresiones previas lesiona los hombros."},
+  "Back lever (progresiones)":     {p:["Pecho","Bíceps","Core"],s:["Deltoides anterior","Dorsal"],desc:"Suspendido con los brazos detrás, mantenés el cuerpo horizontal boca abajo. Trabajá progresiones gradualmente.",tips:["Comenzá con tucked (rodillas al pecho)","Cuerpo completamente rígido","Escápulas activas"],err:"No dominar la posición tucked antes de progresar puede lesionar los codos."},
+  "Human flag (progresiones)":     {p:["Core lateral","Oblicuos","Hombros"],s:["Dorsales","Brazos"],desc:"Agarrado a un poste vertical, mantenés el cuerpo horizontal. Progresiones: rodillas dobladas → piernas extendidas.",tips:["Brazo inferior empuja, brazo superior jala","Core completamente rígido","Progresá con rodillas dobladas"],err:"Intentar la posición completa sin base de fuerza lateral es inútil y peligroso."},
+  "Superman (isométrico)":         {p:["Espinales","Glúteos"],s:["Isquiotibiales","Hombros posteriores"],desc:"Boca abajo, elevás simultáneamente brazos y piernas del suelo y mantenés la posición.",tips:["Elevaciones pequeñas y controladas","Cuello neutro","Respiración continua"],err:"Elevar demasiado causa hiperextensión lumbar."},
+  "Arch body (isométrico)":        {p:["Espinales","Glúteos","Hombros"],s:["Isquiotibiales","Core posterior"],desc:"Boca abajo, cuerpo arqueado manteniendo brazos y piernas elevados. Posición complementaria al hollow body.",tips:["Contracción de glúteos y espinales","Respiración continua","Progresión hacia el back lever"],err:"No activar glúteos genera toda la carga en la zona lumbar."},
+  "Dips en silla":                 {p:["Tríceps","Pecho inferior"],s:["Deltoides anterior","Core"],desc:"Manos apoyadas en el borde de una silla, bajá flexionando los codos y empujá hacia arriba.",tips:["Espalda cerca de la silla","Codos hacia atrás, no afuera","Rango completo"],err:"Codos muy abiertos activa los hombros en lugar del tríceps."},
+  "Step up":                       {p:["Cuádriceps","Glúteos"],s:["Isquiotibiales","Core","Equilibrio"],desc:"Subí a un cajón o escalón con un pie y llevá la rodilla contraria al pecho, bajá controlado.",tips:["Pisá con todo el pie","Empujá desde el talón","Torso erecto"],err:"Impulsarte con el pie del suelo en lugar de trabajar la pierna en el cajón."},
 };
 
 // ═══════════════════════════════════════════════
@@ -2364,6 +2466,7 @@ function openAddDay() {
   document.getElementById('dayEditLabel').textContent = 'NUEVO DÍA';
   document.getElementById('dayEditTitle').textContent = 'Configurar día';
   document.getElementById('deNombre').value = '';
+  document.getElementById('deWeekday').value = '';
   document.getElementById('deDeleteBtn').style.display = 'none';
   renderDeExList();
   document.getElementById('dayEditOverlay').classList.add('open');
@@ -2377,6 +2480,7 @@ function openEditDay(di) {
   document.getElementById('dayEditLabel').textContent = `DÍA ${di+1}`;
   document.getElementById('dayEditTitle').textContent = routine.days[di].name;
   document.getElementById('deNombre').value = routine.days[di].name;
+  document.getElementById('deWeekday').value = routine.days[di].weekday !== undefined ? String(routine.days[di].weekday) : '';
   document.getElementById('deDeleteBtn').style.display = 'block';
   renderDeExList();
   document.getElementById('dayEditOverlay').classList.add('open');
@@ -2473,9 +2577,13 @@ function saveDayEdit() {
   const nombre = document.getElementById('deNombre').value.trim();
   if (!nombre) { toast('Poné un nombre al día'); return; }
   const routine = db.routine.get() || {name:'Mi rutina', days:[]};
+  const weekdayVal = document.getElementById('deWeekday').value;
+  const weekdayNum = weekdayVal !== '' ? parseInt(weekdayVal) : undefined;
   if (editingDayIdx !== null) {
     routine.days[editingDayIdx].name = nombre;
     routine.days[editingDayIdx].exercises = editingDayExercises;
+    if (weekdayNum !== undefined) routine.days[editingDayIdx].weekday = weekdayNum;
+    else delete routine.days[editingDayIdx].weekday;
   } else {
     routine.days.push({ id: Date.now(), name: nombre, exercises: editingDayExercises });
   }
@@ -2676,15 +2784,29 @@ function renderHome() {
   // Day cards — figure out recommended day
   const days = routine?.days || [];
 
-  // Find recommended: day with exercises that was trained longest ago (or never)
+  // Find recommended day:
+  // 1. If a day is assigned to today's weekday (via day.weekday), prefer that
+  // 2. Otherwise fall back to the day trained longest ago
+  const todayDow2 = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
   let recommendedDi = -1;
   let oldestTs = Infinity;
-  days.forEach((day, di) => {
-    if (!(day.exercises?.length)) return;
-    const daySessions = sessions.filter(s=>s.dayIdx===di);
-    const lastTs = daySessions.length ? new Date(daySessions[daySessions.length-1].ts).getTime() : 0;
-    if (lastTs < oldestTs) { oldestTs = lastTs; recommendedDi = di; }
-  });
+
+  // First pass: check if any day is assigned to today
+  const todayAssigned = days.findIndex((day, di) =>
+    day.exercises?.length && day.weekday !== undefined && day.weekday === todayDow2
+  );
+
+  if (todayAssigned >= 0) {
+    recommendedDi = todayAssigned;
+  } else {
+    // Second pass: day trained longest ago (original logic)
+    days.forEach((day, di) => {
+      if (!(day.exercises?.length)) return;
+      const daySessions = sessions.filter(s=>s.dayIdx===di);
+      const lastTs = daySessions.length ? new Date(daySessions[daySessions.length-1].ts).getTime() : 0;
+      if (lastTs < oldestTs) { oldestTs = lastTs; recommendedDi = di; }
+    });
+  }
 
   const dc = document.getElementById('dayCCards');
   dc.innerHTML = days.map((day,di)=>{
@@ -2698,7 +2820,9 @@ function renderHome() {
     if (!last) {
       lastStr = 'Sin sesiones aún';
     } else {
-      const daysAgo = Math.floor((Date.now()-new Date(last.ts))/86400000);
+      const lastDate = localDateStr(new Date(last.ts));
+      const todayD = localDateStr();
+      const daysAgo = Math.round((new Date(todayD) - new Date(lastDate)) / 86400000);
       if (daysAgo === 0)      lastStr = 'Último: hoy';
       else if (daysAgo === 1) lastStr = 'Último: ayer';
       else                    lastStr = `Último: hace ${daysAgo} días`;
@@ -2846,6 +2970,7 @@ function confirmLeaveWorkout() {
 }
 
 function startWorkout(di) {
+  workoutStartTime = Date.now(); // track session duration
   // Reset RPE for new workout
   Object.keys(currentRpe).forEach(k => delete currentRpe[k]);
   const routine = db.routine.get();
@@ -2863,7 +2988,8 @@ function startWorkout(di) {
   if (!sessions.length) {
     ctx = 'Primera vez · ¡A romperla!';
   } else {
-    const daysAgo = Math.floor((Date.now()-new Date(lastSess.ts))/86400000);
+    const lastSessDate = localDateStr(new Date(lastSess.ts));
+    const daysAgo = Math.round((new Date(localDateStr()) - new Date(lastSessDate)) / 86400000);
     const ago = daysAgo===0?'hoy':daysAgo===1?'ayer':`hace ${daysAgo} días`;
     ctx = `Sesión ${sessions.length+1} · última ${ago}`;
   }
@@ -3353,6 +3479,7 @@ let restInterval = null;
 let restTotal = 60;
 let restRemaining = 60;
 let restStartTime = 0;
+let workoutStartTime = null;
 
 function startRest(seconds) {
   stopRest();
@@ -3526,9 +3653,16 @@ function showQuickSummary(sess, completed, skipped, newPRs, curVol, prevVol, cal
   const day = routine.days[sess.dayIdx];
   const volDiff = prevVol > 0 ? Math.round((curVol - prevVol) / prevVol * 100) : null;
 
+  // Session duration
+  const sessionMins = workoutStartTime ? Math.round((Date.now() - workoutStartTime) / 60000) : null;
+
   document.getElementById('calDayName').textContent = day.name.toUpperCase();
 
-  let html = `<div style="display:flex;gap:10px;margin:14px 0 12px;">`;
+  let html = '';
+  if (sessionMins) {
+    html += `<div style="padding:4px 18px 0;font-size:12px;color:var(--muted);">⏱ Duración: <span style="color:var(--text);font-weight:600;">${sessionMins} min</span></div>`;
+  }
+  html += `<div style="display:flex;gap:10px;margin:14px 0 12px;">`;
 
   // Completed
   html += `<div style="flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:14px 8px;text-align:center;">
@@ -3946,9 +4080,9 @@ function renderCalGrid(sessions, sportLogs, days) {
       dt.setDate(dt.getDate() - w*7 - (now.getDay()||7) + d + 1);
       dt.setHours(0,0,0,0);
       if (dt > now) { cells.push('<div></div>'); continue; }
-      const key = dt.toISOString().slice(0,10);
-      const gymSess = sessions.filter(s=>s.ts.slice(0,10)===key);
-      const sportSess = sportLogs.filter(s=>s.ts.slice(0,10)===key);
+      const key = localDateStr(dt);
+      const gymSess = sessions.filter(s=>localDateStr(new Date(s.ts))===key);
+      const sportSess = sportLogs.filter(s=>localDateStr(new Date(s.ts))===key);
       let cls = '';
       if (gymSess.length) { const di = gymSess[0].dayIdx; cls = `c${di%7}`; }
       else if (sportSess.length) cls = 'sport';
@@ -4455,6 +4589,7 @@ function renderHistory() {
           ${s.nota ? `<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border-left:3px solid ${color};font-size:13px;color:#ccc;line-height:1.6;font-style:italic;">"${s.nota}"</div>` : ''}
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
             <button class="btn-g" style="width:100%;justify-content:center;" onclick="shareSessionByTs('${s.ts}')">📤 Compartir resumen</button>
+            <button class="btn-g" style="width:100%;justify-content:center;" onclick="editSessionByTs('${s.ts}')">✏️ Editar pesos y reps</button>
             <button class="btn-g danger" style="width:100%;justify-content:center;" onclick="deleteSession('gym','${s.ts}')">Eliminar sesión</button>
           </div>
         </div>
@@ -4471,6 +4606,91 @@ function toggleHist(i) {
   if (!body) return;
   const open = body.classList.toggle('open');
   if (chev) chev.classList.toggle('open', open);
+}
+
+let editingSessionTs = null;
+
+function editSessionByTs(ts) {
+  const sessions = db.sessions.get();
+  const sess = sessions.find(s => s.ts === ts);
+  if (!sess) return;
+  editingSessionTs = ts;
+
+  const routine = db.routine.get();
+  const dayName = routine?.days?.[sess.dayIdx]?.name || `Día ${sess.dayIdx + 1}`;
+  const dateStr = new Date(sess.ts).toLocaleDateString('es-AR', {weekday:'long', day:'numeric', month:'long'});
+
+  document.getElementById('sessEditTitle').textContent = dayName.toUpperCase();
+
+  const exList = Object.entries(sess.exercises || {});
+  let html = `<div style="font-size:12px;color:var(--muted);padding:4px 0 14px;">${dateStr}</div>`;
+
+  exList.forEach(([ei, ex]) => {
+    const done = ex.series?.filter(s => s.done) || [];
+    if (!done.length) return;
+
+    html += `<div style="margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">${ex.name}</div>
+      ${ex.series.map((serie, si) => {
+        if (!serie.done) return '';
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <div style="font-size:12px;color:var(--muted);width:20px;text-align:right;">${si+1}</div>
+          <input type="number" inputmode="decimal"
+            id="sedit_r_${ei}_${si}"
+            value="${serie.reps || ''}"
+            placeholder="reps"
+            style="width:70px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:6px 8px;text-align:center;">
+          <div style="font-size:12px;color:var(--muted);">reps</div>
+          ${ex.kg ? `
+          <input type="number" inputmode="decimal"
+            id="sedit_k_${ei}_${si}"
+            value="${serie.kg || ''}"
+            placeholder="kg"
+            style="width:70px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:6px 8px;text-align:center;">
+          <div style="font-size:12px;color:var(--muted);">kg</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="height:1px;background:var(--border);margin-bottom:16px;"></div>`;
+  });
+
+  // Nota
+  html += `<div style="margin-bottom:6px;">
+    <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nota de sesión</label>
+    <textarea id="seditNota" rows="2"
+      style="width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;padding:10px 12px;resize:none;outline:none;line-height:1.5;"
+      placeholder="¿Cómo te sentiste?">${sess.nota || ''}</textarea>
+  </div>`;
+
+  document.getElementById('sessEditBody').innerHTML = html;
+  document.getElementById('sessEditOverlay').classList.add('open');
+}
+
+function saveSessionEdit() {
+  if (!editingSessionTs) return;
+  const sessions = db.sessions.get();
+  const idx = sessions.findIndex(s => s.ts === editingSessionTs);
+  if (idx < 0) return;
+
+  const sess = sessions[idx];
+  Object.entries(sess.exercises || {}).forEach(([ei, ex]) => {
+    ex.series?.forEach((serie, si) => {
+      if (!serie.done) return;
+      const repsEl = document.getElementById(`sedit_r_${ei}_${si}`);
+      const kgEl   = document.getElementById(`sedit_k_${ei}_${si}`);
+      if (repsEl) serie.reps = parseFloat(repsEl.value) || serie.reps;
+      if (kgEl)   serie.kg   = parseFloat(kgEl.value)   || serie.kg;
+    });
+  });
+
+  const nota = document.getElementById('seditNota')?.value.trim() || '';
+  sess.nota = nota;
+
+  db.sessions.set(sessions);
+  document.getElementById('sessEditOverlay').classList.remove('open');
+  renderHistory();
+  toast('✓ Sesión actualizada');
+  editingSessionTs = null;
 }
 
 function deleteSession(type, id) {
