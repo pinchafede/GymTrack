@@ -1770,8 +1770,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.9.5';
+const APP_VERSION = '3.9.6';
 // Changelog:
+// 3.9.6 — Reordenar ejercicios, leyenda colores en stats
 // 3.9.5 — Fix weekday nuevo día, duración en historial
 // 3.9.4 — Día recomendado por semana, editar sesión, 💡 119 ejercicios
 // 3.9.3 — Fix fechas UTC, duración sesión, info ejercicios calistenia
@@ -2495,9 +2496,15 @@ function renderDeExList() {
   }
   container.innerHTML = editingDayExercises.map((ex,i)=>`
     <div class="re-ex-row">
-      <div class="re-ex-name" style="font-size:13px;">${ex.name}</div>
-      <div class="re-ex-meta">${ex.series}×${ex.reps}${ex.kg?' · kg':''}</div>
-      <button class="btn-g" onclick="editExInDay(${i})" style="padding:4px 8px;margin-left:4px;">✏️</button>
+      <div style="display:flex;flex-direction:column;gap:2px;margin-right:4px;">
+        <button class="btn-g" onclick="moveExInDay(${i},-1)" style="padding:2px 6px;font-size:11px;${i===0?'opacity:.3;pointer-events:none;':''}">↑</button>
+        <button class="btn-g" onclick="moveExInDay(${i},1)" style="padding:2px 6px;font-size:11px;${i===editingDayExercises.length-1?'opacity:.3;pointer-events:none;':''}">↓</button>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="re-ex-name" style="font-size:13px;">${ex.name}</div>
+        <div class="re-ex-meta">${ex.series}×${ex.reps}${ex.kg?' · kg':''}${ex.timed?' · ⏱':''}</div>
+      </div>
+      <button class="btn-g" onclick="editExInDay(${i})" style="padding:4px 8px;">✏️</button>
       <button class="btn-g danger" onclick="removeExFromDay(${i})" style="padding:4px 8px;margin-left:2px;">✕</button>
     </div>`).join('');
 }
@@ -2534,6 +2541,15 @@ function editExInDay(i) {
   updateKgToggleUI();
   updateTimedToggleUI();
   document.getElementById('exEditOverlay').classList.add('open');
+}
+
+function moveExInDay(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= editingDayExercises.length) return;
+  const tmp = editingDayExercises[i];
+  editingDayExercises[i] = editingDayExercises[j];
+  editingDayExercises[j] = tmp;
+  renderDeExList();
 }
 
 function removeExFromDay(i) {
@@ -4022,7 +4038,7 @@ function renderStats() {
 
   // Volume chart
   html += `<div class="sec-label">Volumen total por sesión</div>
-  <div class="stats-card"><canvas id="volChart" height="140"></canvas></div>`;
+  <div class="stats-card"><canvas id="volChart" height="140"></canvas><div id="volChartLegend" style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:8px 4px 0;"></div></div>`;
 
   // Progress by exercise
   if (days.length && sessions.length > 1) {
@@ -4064,6 +4080,19 @@ function renderStats() {
       labels: volData.map(d=>new Date(d.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})),
       datasets:[{data:volData.map(d=>d.vol), backgroundColor:volData.map(d=>DAY_COLORS[d.di%7]+'99'), borderColor:volData.map(d=>DAY_COLORS[d.di%7]), borderWidth:1.5, borderRadius:4}]
     }, options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
+
+    // Color legend below chart
+    const usedDays = [...new Set(volData.map(d=>d.di))];
+    const legendEl = document.getElementById('volChartLegend');
+    if (legendEl) {
+      legendEl.innerHTML = usedDays.map(di => {
+        const dayName = days[di]?.name || `Día ${di+1}`;
+        return `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);">
+          <div style="width:10px;height:10px;border-radius:2px;background:${DAY_COLORS[di%7]};flex-shrink:0;"></div>
+          ${dayName}
+        </div>`;
+      }).join('');
+    }
   }
 
   // Evolution chart
