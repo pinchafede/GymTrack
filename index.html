@@ -1770,8 +1770,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.9.4';
+const APP_VERSION = '3.9.5';
 // Changelog:
+// 3.9.5 — Fix weekday nuevo día, duración en historial
 // 3.9.4 — Día recomendado por semana, editar sesión, 💡 119 ejercicios
 // 3.9.3 — Fix fechas UTC, duración sesión, info ejercicios calistenia
 // 3.9.2 — Revertir ExerciseDB, limpiar API
@@ -2585,7 +2586,9 @@ function saveDayEdit() {
     if (weekdayNum !== undefined) routine.days[editingDayIdx].weekday = weekdayNum;
     else delete routine.days[editingDayIdx].weekday;
   } else {
-    routine.days.push({ id: Date.now(), name: nombre, exercises: editingDayExercises });
+    const newDay = { id: Date.now(), name: nombre, exercises: editingDayExercises };
+    if (weekdayNum !== undefined) newDay.weekday = weekdayNum;
+    routine.days.push(newDay);
   }
   db.routine.set(routine);
   document.getElementById('dayEditOverlay').classList.remove('open');
@@ -3615,7 +3618,8 @@ function saveSession() {
   const cooldown = {t:document.getElementById('coolT')?.value||''};
 
   const nota = document.getElementById('sessNota')?.value.trim() || '';
-  const sess = { ts: now, dayIdx: currentDayIdx, exercises, warmup, cooldown, nota };
+  const durationMins = workoutStartTime ? Math.round((Date.now() - workoutStartTime) / 60000) : null;
+  const sess = { ts: now, dayIdx: currentDayIdx, exercises, warmup, cooldown, nota, duration: durationMins };
   const cal = calcCalories(sess);
   if (cal) sess.calories = cal.total;
 
@@ -4562,7 +4566,7 @@ function renderHistory() {
         <div class="hist-header" onclick="toggleHist(${i})">
           <div style="flex:1;min-width:0;">
             <div class="hist-title">${dayName}</div>
-            <div class="hist-meta">${timeStr} · ${doneSeries} series${vol>0?' · '+Math.round(vol)+'kg vol':''}${s.calories?' · '+s.calories+' kcal':''}</div>
+            <div class="hist-meta">${timeStr}${s.duration?' · ⏱'+s.duration+'min':''} · ${doneSeries} series${vol>0?' · '+Math.round(vol)+'kg vol':''}${s.calories?' · '+s.calories+' kcal':''}</div>
             ${prNames.length ? `<div style="margin-top:4px;font-size:11px;color:var(--accent);">🏆 PR: ${prNames.join(', ')}</div>` : ''}
           </div>
           <div class="hist-chev" id="hchev${i}">›</div>
