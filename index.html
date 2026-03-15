@@ -1770,8 +1770,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '3.9.6';
+const APP_VERSION = '3.9.7';
 // Changelog:
+// 3.9.7 — Coach mejorado, progresión automática sugerida
 // 3.9.6 — Reordenar ejercicios, leyenda colores en stats
 // 3.9.5 — Fix weekday nuevo día, duración en historial
 // 3.9.4 — Día recomendado por semana, editar sesión, 💡 119 ejercicios
@@ -4198,7 +4199,12 @@ function renderCoach() {
   const container = document.getElementById('coachContent');
 
   if (!sessions.length) {
-    container.innerHTML = `<div class="no-data">Completá al menos una sesión para ver tu progreso.</div>`;
+    container.innerHTML = `
+      <div style="margin:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;">
+        <div style="font-size:32px;margin-bottom:10px;">🏋️</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;margin-bottom:8px;">TU COACH PERSONAL</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;">Completá tu primera sesión para ver análisis de progreso, sugerencias de peso y tendencias de esfuerzo.</div>
+      </div>`;
     return;
   }
 
@@ -4242,6 +4248,51 @@ function renderCoach() {
     html += `<div style="margin:0 16px 14px;background:rgba(212,245,60,.06);border:1px solid var(--accent-border);border-radius:var(--radius);padding:12px 14px;">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:6px;">⬆️ POTENCIAL SIN EXPLOTAR</div>
       <div style="font-size:13px;color:#ccc;line-height:1.6;">${rpeOpportunities.map(w=>`<strong>${w.name}</strong>`).join(', ')} — siempre lo sentís fácil. Es momento de subir el peso.</div>
+    </div>`;
+  }
+
+  // ── Sugerencias de progresión ────────────────────────────────────────────
+  // Detectar ejercicios con kg donde las últimas 3 sesiones se completaron
+  // todas las series con el mismo peso → sugerir subir
+  const progressionSuggestions = [];
+  days.forEach((day, di) => {
+    const daySess = sessions.filter(s=>s.dayIdx===di).slice(-4);
+    if (daySess.length < 3) return;
+    day.exercises.forEach((ex, ei) => {
+      if (!ex.kg) return;
+      const last3 = daySess.slice(-3);
+      // Check all 3 completed all series and used same weight
+      const weights = last3.map(s => {
+        const exData = s.exercises?.[ei];
+        if (!exData) return null;
+        const done = exData.series?.filter(ss=>ss.done && ss.kg > 0) || [];
+        if (done.length < ex.series) return null; // not all series done
+        const kgs = done.map(ss=>ss.kg);
+        const allSame = kgs.every(k => k === kgs[0]);
+        return allSame ? kgs[0] : null;
+      });
+      if (weights.every(w => w !== null && w === weights[0])) {
+        const currentKg = weights[0];
+        const suggestedKg = currentKg >= 20
+          ? Math.round((currentKg + 2.5) * 2) / 2
+          : Math.round((currentKg + 1.25) * 4) / 4;
+        progressionSuggestions.push({ name: ex.name, currentKg, suggestedKg });
+      }
+    });
+  });
+
+  if (progressionSuggestions.length) {
+    html += `<div style="margin:0 16px 14px;background:rgba(212,245,60,.06);border:1px solid var(--accent-border);border-radius:var(--radius);padding:12px 14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:10px;">📈 LISTO PARA PROGRESAR</div>
+      ${progressionSuggestions.map(s => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(212,245,60,.1);">
+          <div style="font-size:13px;color:#e0e0e0;flex:1;padding-right:8px;">${s.name}</div>
+          <div style="text-align:right;flex-shrink:0;">
+            <span style="font-size:12px;color:var(--muted);text-decoration:line-through;">${s.currentKg}kg</span>
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--accent);margin-left:8px;">→ ${s.suggestedKg}kg</span>
+          </div>
+        </div>`).join('')}
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;">3 sesiones consecutivas completadas con el mismo peso 💪</div>
     </div>`;
   }
 
@@ -4293,6 +4344,26 @@ function renderCoach() {
         <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);">${ex.kg}kg</div>
       </div>`).join('')}
     </div>`;
+  }
+
+  // ── Resumen primera sesión (cuando hay pocas sesiones) ───────────────────
+  if (sessions.length === 1) {
+    const s = sessions[0];
+    const dayN = days[s.dayIdx]?.name || 'Primera sesión';
+    const exDone = Object.values(s.exercises||{}).filter(ex=>ex.series?.some(ss=>ss.done));
+    const vol = exDone.reduce((a,ex)=>a+(ex.series?.filter(ss=>ss.done&&(ss.kg||0)>0).reduce((b,ss)=>b+(ss.reps||0)*(ss.kg||0),0)||0),0);
+    html += `<div style="margin:0 16px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:600;margin-bottom:10px;">✅ PRIMERA SESIÓN REGISTRADA</div>
+      <div style="font-size:13px;color:#ccc;line-height:1.8;">
+        <div>📋 <strong>${dayN}</strong></div>
+        <div>💪 ${exDone.length} ejercicios completados</div>
+        ${vol > 0 ? `<div>📦 ${Math.round(vol)} kg de volumen total</div>` : ''}
+        ${s.duration ? `<div>⏱ ${s.duration} minutos</div>` : ''}
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:10px;">Completá más sesiones para ver análisis de progreso y sugerencias personalizadas.</div>
+    </div>`;
+    container.innerHTML = html;
+    return;
   }
 
   days.forEach((day, di) => {
