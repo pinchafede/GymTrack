@@ -325,6 +325,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 
 /* Workout serie rows */
 .serie-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);transition:background .15s,transform .15s,opacity .15s;position:relative;overflow:hidden;touch-action:pan-y;}
+.serie-row.locked{opacity:.3;pointer-events:none;}
 .serie-row:last-child{border-bottom:none}
 .serie-row.done-row{opacity:.5}
 .serie-row.swipe-hint{background:rgba(212,245,60,.06);}
@@ -359,6 +360,12 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .carousel-prev:active,.carousel-next:active{background:var(--surface);transform:scale(.95);}
 .carousel-prev.disabled,.carousel-next.disabled{opacity:.3;pointer-events:none;}
 .carousel-progress{height:3px;background:var(--surface2);margin:0 16px 0;}
+.rest-overlay{position:absolute;left:0;right:0;bottom:0;background:rgba(10,10,10,.93);border-radius:0 0 var(--radius) var(--radius);z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px 20px;gap:10px;}
+.rest-overlay.show{display:flex;}
+.rest-overlay-time{font-family:'Bebas Neue',sans-serif;font-size:72px;color:var(--accent);line-height:1;letter-spacing:2px;}
+.rest-overlay-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);}
+.rest-overlay-bar{width:100%;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.rest-overlay-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 1s linear;}
 .carousel-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .35s;}
 .carousel-ex-header{padding:12px 0 8px;}
 .carousel-ex-num{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:2px;}
@@ -1926,8 +1933,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.1.5';
+const APP_VERSION = '4.1.6';
 // Changelog:
+// 4.1.6 — Series secuenciales, timer overlay carrusel, fix swipe click
 // 4.1.5 — Fix overlay skip, swipe carrusel, labels, cancelar sesión
 // 4.1.4 — Fix overlay salteado, fix finalizar, labels REPS/PESO/kg, cancelar sesión
 // 4.1.3 — Overlay salteado, fix finalizar, labels reps/kg
@@ -3414,14 +3422,14 @@ function renderCarousel(di) {
       const perSerieReps = lastSess?.series?.[si]?.reps || ex.reps;
       const hasKg = perSerieKg && perSerieKg > 0;
       if (ex.timed) {
-        return `<div class="serie-row" id="sr${ei}_${si}">
+        return `<div class="serie-row${si>0?' locked':''}" id="sr${ei}_${si}">
           <div class="serie-num">${si+1}</div>
           <div style="flex:1;font-size:13px;color:var(--muted);">${perSerieReps}s</div>
           <button class="btn-g" id="timedBtn${ei}_${si}" onclick="startTimedSerie(${ei},${si},${perSerieReps},${ex.series})" style="flex:1;justify-content:center;">▶ Iniciar</button>
           <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
         </div>`;
       }
-      return `<div class="serie-row" id="sr${ei}_${si}">
+      return `<div class="serie-row${si>0?' locked':''}" id="sr${ei}_${si}">
         <div class="serie-num">${si+1}</div>
         <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
         <div class="serie-sep">reps</div>
@@ -3458,7 +3466,13 @@ function renderCarousel(di) {
 
   container.innerHTML = `
     <div class="carousel-progress"><div class="carousel-progress-fill" id="carouselFill" style="width:${pct}%"></div></div>
-    <div class="carousel-wrap">
+    <div class="carousel-wrap" style="position:relative;">
+      <div class="rest-overlay" id="restOverlayCarousel">
+        <div class="rest-overlay-label">Descanso</div>
+        <div class="rest-overlay-time" id="restOverlayTime">60</div>
+        <div class="rest-overlay-bar"><div class="rest-overlay-fill" id="restOverlayFill" style="width:100%"></div></div>
+        <button class="btn-g" onclick="skipRest()" style="margin-top:4px;padding:10px 32px;font-size:14px;">Saltar →</button>
+      </div>
       <div class="carousel-track" id="carouselTrack" style="transform:translateX(-${carouselIdx * 100}%)">
         ${slides}
       </div>
@@ -3486,17 +3500,17 @@ function renderCarousel(di) {
 function initCarouselSwipe() {
   const track = document.getElementById('carouselTrack');
   if (!track) return;
-  // Remove old listeners by cloning
   const wrap = track.parentElement;
   if (!wrap) return;
 
-  let startX = 0, startY = 0, dragging = false, diffX = 0;
+  let startX = 0, startY = 0, dragging = false, diffX = 0, wasSwiping = false;
 
   wrap.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     dragging = true;
     diffX = 0;
+    wasSwiping = false;
     track.style.transition = 'none';
   }, {passive: true});
 
@@ -3504,10 +3518,9 @@ function initCarouselSwipe() {
     if (!dragging) return;
     diffX = e.touches[0].clientX - startX;
     const diffY = e.touches[0].clientY - startY;
-    // Only horizontal swipe
-    if (Math.abs(diffX) > Math.abs(diffY) * 1.2) {
+    if (Math.abs(diffX) > Math.abs(diffY) * 1.2 && Math.abs(diffX) > 8) {
+      wasSwiping = true;
       const base = -(carouselIdx * 100);
-      const pct = (diffX / wrap.offsetWidth) * 100;
       track.style.transform = `translateX(calc(${base}% + ${diffX}px))`;
     }
   }, {passive: true});
@@ -3516,13 +3529,17 @@ function initCarouselSwipe() {
     if (!dragging) return;
     dragging = false;
     track.style.transition = 'transform .35s cubic-bezier(.4,0,.2,1)';
-    if (Math.abs(diffX) > 60) {
+    if (wasSwiping && Math.abs(diffX) > 60) {
+      // Block any click that fires after swipe
+      const blocker = (ev) => { ev.stopPropagation(); ev.preventDefault(); wrap.removeEventListener('click', blocker, true); };
+      wrap.addEventListener('click', blocker, true);
+      setTimeout(() => wrap.removeEventListener('click', blocker, true), 300);
       carouselGo(diffX < 0 ? 1 : -1);
     } else {
-      // Snap back
       track.style.transform = `translateX(-${carouselIdx * 100}%)`;
     }
     diffX = 0;
+    wasSwiping = false;
   }, {passive: true});
 }
 
@@ -3693,14 +3710,14 @@ function renderExList(di) {
             const perSerieReps = lastSess?.series?.[si]?.reps || ex.reps;
             const hasKg = perSerieKg && perSerieKg > 0;
             if (ex.timed) {
-              return `<div class="serie-row" id="sr${ei}_${si}">
+              return `<div class="serie-row${si>0?' locked':''}" id="sr${ei}_${si}">
                 <div class="serie-num">${si+1}</div>
                 <div style="flex:1;font-size:13px;color:var(--muted);">${perSerieReps}s</div>
                 <button class="btn-g" id="timedBtn${ei}_${si}" onclick="startTimedSerie(${ei},${si},${perSerieReps},${ex.series})" style="flex:1;justify-content:center;">▶ Iniciar</button>
                 <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
               </div>`;
             }
-            return `<div class="serie-row" id="sr${ei}_${si}">
+            return `<div class="serie-row${si>0?' locked':''}" id="sr${ei}_${si}">
               <div class="serie-num">${si+1}</div>
               <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
               <div class="serie-sep">reps</div>
@@ -3987,6 +4004,23 @@ function toggleEx(ei) {
 }
 
 // Toggle individual serie as done/undone + launch rest timer
+function updateSerieLocks(ei, totalSeries) {
+  // Lock all series after the first undone one
+  let foundUndone = false;
+  for (let i = 0; i < totalSeries; i++) {
+    const row = document.getElementById(`sr${ei}_${i}`);
+    if (!row) continue;
+    const btn = document.getElementById(`sc${ei}_${i}`);
+    const isDone = btn?.classList.contains('done');
+    if (foundUndone) {
+      row.classList.add('locked');
+    } else {
+      row.classList.remove('locked');
+      if (!isDone) foundUndone = true;
+    }
+  }
+}
+
 function toggleSerie(ei, si, totalSeries) {
   const btn = document.getElementById(`sc${ei}_${si}`);
   const row = document.getElementById(`sr${ei}_${si}`);
@@ -3995,6 +4029,9 @@ function toggleSerie(ei, si, totalSeries) {
   row.classList.toggle('done-row', isDone);
 
   if (isDone && navigator.vibrate) navigator.vibrate(40);
+
+  // Update sequential locks
+  updateSerieLocks(ei, totalSeries);
 
   // Autoguardado silencioso del estado actual
   if (isDone) autoSaveProgress();
@@ -4088,20 +4125,41 @@ function startRest(seconds) {
   stopRest();
   restTotal = seconds;
   restRemaining = seconds;
-  const bar = document.getElementById('restBar');
-  const fill = document.getElementById('restFill');
-  const time = document.getElementById('restTime');
-  bar.classList.add('show');
-  fill.style.width = '100%';
-
-  // Track start time for accuracy when phone locks/unlocks
   restStartTime = Date.now();
+
+  if (workoutView === 'carousel') {
+    // Carousel: show overlay inside the carousel wrap
+    const overlay = document.getElementById('restOverlayCarousel');
+    const time = document.getElementById('restOverlayTime');
+    const fill = document.getElementById('restOverlayFill');
+    if (overlay) { overlay.classList.add('show'); }
+    if (time) time.textContent = seconds;
+    if (fill) fill.style.width = '100%';
+  } else {
+    const bar = document.getElementById('restBar');
+    const fill = document.getElementById('restFill');
+    const time = document.getElementById('restTime');
+    bar.classList.add('show');
+    fill.style.width = '100%';
+  }
+
   restInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - restStartTime) / 1000);
     restRemaining = Math.max(0, restTotal - elapsed);
-    time.textContent = restRemaining;
     const pct = (restRemaining / restTotal) * 100;
-    fill.style.width = pct + '%';
+
+    if (workoutView === 'carousel') {
+      const time = document.getElementById('restOverlayTime');
+      const fill = document.getElementById('restOverlayFill');
+      if (time) time.textContent = restRemaining;
+      if (fill) fill.style.width = pct + '%';
+    } else {
+      const time = document.getElementById('restTime');
+      const fill = document.getElementById('restFill');
+      if (time) time.textContent = restRemaining;
+      if (fill) fill.style.width = pct + '%';
+    }
+
     if (restRemaining <= 0) {
       stopRest();
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -4114,6 +4172,7 @@ function startRest(seconds) {
 function stopRest() {
   if (restInterval) { clearInterval(restInterval); restInterval = null; }
   document.getElementById('restBar')?.classList.remove('show');
+  document.getElementById('restOverlayCarousel')?.classList.remove('show');
 }
 
 function skipRest() { stopRest(); }
