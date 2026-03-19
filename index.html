@@ -1930,8 +1930,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.2.3';
+const APP_VERSION = '4.2.4';
 // Changelog:
+// 4.2.4 — Ejercicio extra: toggle por tiempo unificado con editor
 // 4.2.3 — Slide ejercicio extra en carrusel, fix hidden exercises
 // 4.2.2 — Timer full screen con nombre y próximo ejercicio
 // 4.2.1 — Timer bloquea serie siguiente, overlay full screen, swipe bloqueado
@@ -3416,19 +3417,19 @@ function renderCarousel(di) {
             <input class="input-f" id="extraName" type="text" placeholder="Nombre del ejercicio" style="flex:1;">
             <button class="btn-g" onclick="openPredefForExtra()" style="flex-shrink:0;">📋</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
             <div>
               <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Series</label>
               <div class="stepper"><button class="step-btn" onclick="stepVal('extraS',-1)">−</button><div class="step-val" id="extraS">3</div><button class="step-btn" onclick="stepVal('extraS',1)">+</button></div>
             </div>
             <div>
-              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Reps</label>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;" id="extraRLabel">Reps</label>
               <div class="stepper"><button class="step-btn" onclick="stepVal('extraR',-1)">−</button><div class="step-val" id="extraR">10</div><button class="step-btn" onclick="stepVal('extraR',1)">+</button></div>
             </div>
-            <div>
-              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Con peso</label>
-              <div class="stepper" style="justify-content:center;"><button id="extraKgBtn" class="step-btn" onclick="toggleExtraKg()" style="width:40px;font-size:16px;">✕</button></div>
-            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button id="extraKgBtn" class="btn-g" onclick="toggleExtraKg()" style="flex:1;justify-content:center;font-size:12px;">⚖️ Con peso: NO</button>
+            <button id="extraTimedBtn" class="btn-g" onclick="toggleExtraTimed()" style="flex:1;justify-content:center;font-size:12px;">⏱ Por tiempo: NO</button>
           </div>
           <button class="btn-p" onclick="addExtraToCarousel()" style="width:100%;font-size:16px;">＋ Agregar</button>
         </div>
@@ -3810,14 +3811,31 @@ function updateTimedToggleUI() {
 
 // ─── ADD EXTRA TO ROUTINE ─────────────────────────────────────────────────────
 let extraKg = false;
+let extraTimed = false;
 
 function toggleExtraKg() {
   extraKg = !extraKg;
   const btn = document.getElementById('extraKgBtn');
   if (btn) {
-    btn.textContent = extraKg ? '✓' : '✕';
-    btn.style.background = extraKg ? 'var(--accent)' : '';
-    btn.style.color = extraKg ? '#000' : '';
+    btn.textContent = `⚖️ Con peso: ${extraKg ? 'SÍ' : 'NO'}`;
+    btn.classList.toggle('accent', extraKg);
+  }
+}
+
+function toggleExtraTimed() {
+  extraTimed = !extraTimed;
+  const btn = document.getElementById('extraTimedBtn');
+  const label = document.getElementById('extraRLabel');
+  if (btn) {
+    btn.textContent = `⏱ Por tiempo: ${extraTimed ? 'SÍ' : 'NO'}`;
+    btn.classList.toggle('accent', extraTimed);
+  }
+  if (label) label.textContent = extraTimed ? 'Seg.' : 'Reps';
+  // If timed, disable kg
+  if (extraTimed && extraKg) {
+    extraKg = false;
+    const kgBtn = document.getElementById('extraKgBtn');
+    if (kgBtn) { kgBtn.textContent = '⚖️ Con peso: NO'; kgBtn.classList.remove('accent'); }
   }
 }
 
@@ -3831,7 +3849,8 @@ function addExtraToCarousel() {
   // Save to routine
   const routine = db.routine.get();
   if (!routine?.days?.[currentDayIdx]) return;
-  const newEx = { name, series, reps, kg, timed: false, nota: '' };
+  const timed = extraTimed;
+  const newEx = { name, series, reps, kg: timed ? false : kg, timed, nota: '' };
   routine.days[currentDayIdx].exercises.push(newEx);
   db.routine.set(routine);
   const newEi = routine.days[currentDayIdx].exercises.length - 1;
@@ -3844,6 +3863,14 @@ function addExtraToCarousel() {
 
   if (track && extraSlide) {
     const seriesHtml = Array.from({length:series},(_,si) => {
+      if (timed) {
+        return `<div class="serie-row${si>0?' locked':''}" id="sr${newEi}_${si}">
+          <div class="serie-num">${si+1}</div>
+          <div style="flex:1;font-size:13px;color:var(--muted);">${reps}s</div>
+          <button class="btn-g" id="timedBtn${newEi}_${si}" onclick="startTimedSerie(${newEi},${si},${reps},${series})" style="flex:1;justify-content:center;">▶ Iniciar</button>
+          <div class="serie-check" id="sc${newEi}_${si}" onclick="toggleSerie(${newEi},${si},${series})">○</div>
+        </div>`;
+      }
       return `<div class="serie-row${si>0?' locked':''}" id="sr${newEi}_${si}">
         <div class="serie-num">${si+1}</div>
         <input class="serie-input filled" type="number" inputmode="decimal" id="r${newEi}_${si}" value="${reps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
@@ -3899,8 +3926,13 @@ function addExtraToCarousel() {
   document.getElementById('extraS').textContent = '3';
   document.getElementById('extraR').textContent = '10';
   extraKg = false;
+  extraTimed = false;
   const btn = document.getElementById('extraKgBtn');
-  if (btn) { btn.textContent = '✕'; btn.style.background=''; btn.style.color=''; }
+  if (btn) { btn.textContent = '⚖️ Con peso: NO'; btn.classList.remove('accent'); }
+  const tBtn = document.getElementById('extraTimedBtn');
+  if (tBtn) { tBtn.textContent = '⏱ Por tiempo: NO'; tBtn.classList.remove('accent'); }
+  const lbl = document.getElementById('extraRLabel');
+  if (lbl) lbl.textContent = 'Reps';
 
   toast(`✓ "${name}" agregado`);
   if (navigator.vibrate) navigator.vibrate(40);
