@@ -330,9 +330,11 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .serie-row.swipe-hint{background:rgba(212,245,60,.06);}
 .serie-num{font-size:12px;font-weight:700;color:var(--muted);width:20px;text-align:center;flex-shrink:0}
 .serie-input{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;font-weight:600;padding:8px 0;text-align:center;-webkit-appearance:none;transition:border-color .15s;width:70px;flex-shrink:0}
+.serie-kg-wrap{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+.serie-kg-unit{font-size:13px;font-weight:600;color:var(--muted);flex-shrink:0;}
 .serie-input:focus{outline:none;border-color:var(--accent)}
 .serie-input.filled{border-color:#3f5a00;color:var(--accent)}
-.serie-sep{font-size:12px;color:var(--muted);flex-shrink:0}
+.serie-sep{display:none;}
 .serie-check{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0;margin-left:auto;font-size:16px;-webkit-tap-highlight-color:transparent}
 .serie-check.done{background:var(--accent);border-color:var(--accent);color:#000}
 .last-kg-hint{font-size:11px;color:var(--muted);padding:4px 0 8px;}
@@ -521,8 +523,11 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   </div>
   <div id="exList"></div>
   <div class="save-bar-wrap">
-    <button class="btn-p" onclick="finishSession()" style="width:100%;font-size:17px;">✓ FINALIZAR SESIÓN</button>
-    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px;">El progreso se guarda automáticamente</div>
+    <button class="btn-p" onclick="finishSession()" style="width:100%;font-size:17px;margin-bottom:8px;">✓ FINALIZAR SESIÓN</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:11px;color:var(--muted);">El progreso se guarda automáticamente</div>
+      <button class="btn-g danger" onclick="cancelSession()" style="font-size:12px;padding:5px 12px;">✕ Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -1923,8 +1928,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.1.3';
+const APP_VERSION = '4.1.4';
 // Changelog:
+// 4.1.4 — Fix overlay salteado, fix finalizar, labels REPS/PESO/kg, cancelar sesión
 // 4.1.3 — Overlay salteado, fix finalizar, labels reps/kg
 // 4.1.2 — Finalizar sesión, autoguardado, calentamiento en carrusel
 // 4.1.1 — Vista carrusel en workout (toggle ≡/▷)
@@ -3254,6 +3260,24 @@ function renderSuppWidget() {
 let pendingSession = null;
 let infoCache = {};
 
+function cancelSession() {
+  let hasDone = false;
+  const routine = db.routine.get();
+  const day = routine?.days?.[currentDayIdx];
+  day?.exercises?.forEach((ex,ei) => {
+    for (let si=0; si<ex.series; si++) {
+      if (document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')) { hasDone=true; }
+    }
+  });
+  const msg = hasDone
+    ? '¿Cancelar la sesión? Perderás todo el progreso registrado.'
+    : '¿Cancelar la sesión?';
+  if (!confirm(msg)) return;
+  clearWorkoutDraft();
+  stopRest();
+  navTo('home');
+}
+
 function confirmLeaveWorkout() {
   // Check if any series has been marked done
   const routine = db.routine.get();
@@ -3402,7 +3426,7 @@ function renderCarousel(di) {
         <div class="serie-num">${si+1}</div>
         <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
         <div class="serie-sep">reps</div>
-        ${ex.kg?`<input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
+        ${ex.kg?`<div class="serie-kg-wrap"><input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)"><span class="serie-kg-unit">kg</span></div>`:``}
         <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
       </div>`;
     }).join('');
@@ -3614,7 +3638,7 @@ function renderExList(di) {
           <div style="width:20px;flex-shrink:0;"></div>
           <div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Reps</div>
           <div style="width:12px;flex-shrink:0;"></div>
-          ${ex.kg?`<div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Kg</div>`:''}
+          ${ex.kg?`<div style="flex-shrink:0;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);width:84px;">Peso</div>`:''}
         </div>
         <div id="serieRows${ei}">
           ${Array.from({length:ex.series},(_,si)=>{
@@ -3635,7 +3659,7 @@ function renderExList(di) {
               <div class="serie-num">${si+1}</div>
               <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
               <div class="serie-sep">reps</div>
-              ${ex.kg?`<input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
+              ${ex.kg?`<div class="serie-kg-wrap"><input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)"><span class="serie-kg-unit">kg</span></div>`:``}
               <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
             </div>`;
           }).join('')}
@@ -4057,29 +4081,55 @@ function skipEx(ei) {
   btn.classList.toggle('danger', isSkipped);
 
   if (isSkipped) {
-    // Add overlay to ex-body and ex-actions to block interaction
-    const exBody = document.getElementById(`exBody${ei}`);
-    if (exBody && !document.getElementById(`skipOverlay${ei}`)) {
+    // Show overlay blocking the exercise body
+    // Works for both list view (exBody) and carousel (slide content)
+    const target = document.getElementById(`exBody${ei}`) || 
+                   document.querySelector(`.carousel-slide [id="serieRows${ei}"]`)?.closest('.carousel-slide');
+    
+    // Find the serieRows container to overlay
+    const serieRows = document.getElementById(`serieRows${ei}`);
+    const rpeBadge  = document.getElementById(`rpeBadge${ei}`);
+    
+    if (serieRows && !document.getElementById(`skipOverlay${ei}`)) {
+      // Wrap serieRows in a relative container with overlay
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:relative;';
+      wrapper.id = `skipWrapper${ei}`;
+      serieRows.parentNode.insertBefore(wrapper, serieRows);
+      wrapper.appendChild(serieRows);
+      if (rpeBadge) wrapper.appendChild(rpeBadge);
+
       const overlay = document.createElement('div');
       overlay.className = 'ex-skip-overlay';
       overlay.id = `skipOverlay${ei}`;
-      overlay.innerHTML = `<div style="font-size:24px;">⏭</div><div class="ex-skip-overlay-label">Ejercicio salteado</div><button class="btn-g" style="margin-top:4px;font-size:12px;" onclick="skipEx(${ei})">↩ Incluir</button>`;
-      exBody.style.position = 'relative';
-      exBody.appendChild(overlay);
-      // Open body so overlay is visible
-      exBody.classList.add('open');
+      overlay.style.borderRadius = 'var(--radius-sm)';
+      overlay.innerHTML = `<div style="font-size:28px;">⏭</div>
+        <div class="ex-skip-overlay-label">Ejercicio salteado</div>
+        <button class="btn-g" style="margin-top:6px;font-size:12px;" onclick="skipEx(${ei})">↩ Incluir</button>`;
+      wrapper.appendChild(overlay);
+    }
+
+    // List view: open the body so overlay is visible
+    if (workoutView === 'list') {
+      const exBody = document.getElementById(`exBody${ei}`);
+      exBody?.classList.add('open');
       document.getElementById(`exChev${ei}`)?.classList.add('open');
     }
-    // Carousel: advance to next slide automatically
+
+    // Carousel: advance to next slide
     if (workoutView === 'carousel') {
       setTimeout(() => {
         if (carouselIdx < carouselTotal - 1) { carouselIdx++; carouselGo(0); }
       }, 400);
     }
   } else {
-    // Remove overlay
-    const overlay = document.getElementById(`skipOverlay${ei}`);
-    overlay?.remove();
+    // Remove overlay and unwrap
+    const wrapper = document.getElementById(`skipWrapper${ei}`);
+    if (wrapper) {
+      const parent = wrapper.parentNode;
+      while (wrapper.firstChild) parent.insertBefore(wrapper.firstChild, wrapper);
+      wrapper.remove();
+    }
   }
 }
 
@@ -4153,7 +4203,7 @@ function finishSession() {
 
   day.exercises.forEach((ex, ei) => {
     const card = document.getElementById(`exCard${ei}`);
-    const isSkipped = card?.classList.contains('skipped');
+    const isSkipped = card?.classList.contains('skipped') || !!document.getElementById(`skipWrapper${ei}`);
     if (isSkipped) { skippedEx++; return; }
     for (let si = 0; si < ex.series; si++) {
       totalSeries++;
@@ -4188,7 +4238,7 @@ function saveSession() {
 
   day.exercises.forEach((ex, ei) => {
     const card = document.getElementById(`exCard${ei}`);
-    if (card?.classList.contains('skipped')) { skipped++; return; }
+    if (card?.classList.contains('skipped') || document.getElementById(`skipWrapper${ei}`)) { skipped++; return; }
     const series = Array.from({length:ex.series},(_,si)=>{
       const reps = parseFloat(document.getElementById(`r${ei}_${si}`)?.value)||0;
       const kg = ex.kg ? parseFloat(document.getElementById(`k${ei}_${si}`)?.value)||0 : null;
@@ -4211,7 +4261,7 @@ function saveSession() {
   const warmup = {t:document.getElementById('warmT')?.value||'', v:document.getElementById('warmV')?.value||'', i:document.getElementById('warmI')?.value||''};
   const cooldown = {t:document.getElementById('coolT')?.value||''};
 
-  const nota = document.getElementById('sessNota')?.value.trim() || '';
+  const nota = ''; // nota se completa en el resumen post-sesión (summaryNota)
   const durationMins = workoutStartTime ? Math.round((Date.now() - workoutStartTime) / 60000) : null;
   const sess = { ts: now, dayIdx: currentDayIdx, exercises, warmup, cooldown, nota, duration: durationMins };
   const cal = calcCalories(sess);
