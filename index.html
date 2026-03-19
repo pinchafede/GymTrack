@@ -1776,8 +1776,9 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.0.1';
 // Changelog:
+// 4.0.1 — Racha tolera 1 día descanso, quitar ocultar del workout
 // 4.0.0 — Rutinas múltiples (crear, cambiar, eliminar)
 // 3.9.7 — Coach mejorado, progresión automática sugerida
 // 3.9.6 — Reordenar ejercicios, leyenda colores en stats
@@ -2866,16 +2867,34 @@ function renderHome() {
   const sportThisWeek = sportLogs.filter(s=>new Date(s.ts)>=weekStart).length;
   const totalThisWeek = gymThisWeek + sportThisWeek;
 
-  // Streak
+  // Streak — tolera 1 día de descanso entre sesiones
+  // La racha se rompe solo si hay 2+ días consecutivos sin actividad
   const allDates = [...sessions.map(s=>s.ts), ...sportLogs.map(s=>s.ts)]
     .map(ts=>localDateStr(new Date(ts)))
     .filter((v,i,a)=>a.indexOf(v)===i).sort().reverse();
   let streak = 0;
   const today = localDateStr();
   let check = today;
+  let restDaysUsed = 0; // allow 1 rest day per streak
   for(const d of allDates) {
-    if(d===check) { streak++; const dt=new Date(check); dt.setDate(dt.getDate()-1); check=localDateStr(dt); }
-    else if(d<check) break;
+    if (d === check) {
+      streak++;
+      restDaysUsed = 0; // reset rest day counter after activity
+      const dt = new Date(check); dt.setDate(dt.getDate()-1); check = localDateStr(dt);
+    } else if (d < check) {
+      // Gap — check if it's just 1 day
+      const gapDt = new Date(check);
+      const dateDt = new Date(d);
+      const gap = Math.round((gapDt - dateDt) / 86400000);
+      if (gap === 1 && restDaysUsed === 0) {
+        // Allow 1 rest day — skip over it
+        restDaysUsed = 1;
+        const dt = new Date(check); dt.setDate(dt.getDate()-2); check = localDateStr(dt);
+        streak++; // count this session too
+      } else {
+        break; // 2+ day gap or already used rest day
+      }
+    }
   }
 
   document.getElementById('hTotal').textContent = sessions.length + sportLogs.length;
@@ -3254,8 +3273,7 @@ function renderExList(di) {
       </div>
       <div class="ex-actions">
         <button class="btn-g" onclick="openInfo(${ei},'${ex.name.replace(/'/g,"\\'")}')">💡</button>
-        <button class="btn-g" onclick="skipEx(${ei})" id="skipBtn${ei}">${hid?'Mostrando':'⏭ Saltear'}</button>
-        <button class="btn-g${hid?'':' danger'}" onclick="hideEx(${ei})" id="hideBtn${ei}">${hid?'👁 Mostrar':'🚫 Ocultar'}</button>
+        <button class="btn-g" onclick="skipEx(${ei})" id="skipBtn${ei}">⏭ Saltear</button>
       </div>
       <div class="ex-body${isFirst?' open':''}" id="exBody${ei}">
         ${buildSparkline(exSessions, ei)}
@@ -3493,7 +3511,6 @@ function addExtraToRoutine() {
       <div class="ex-actions">
         <button class="btn-g" onclick="openInfo(${newEi},'${name.replace(/'/g,"\'")}')">💡</button>
         <button class="btn-g" onclick="skipEx(${newEi})" id="skipBtn${newEi}">⏭ Saltear</button>
-        <button class="btn-g danger" onclick="hideEx(${newEi})" id="hideBtn${newEi}">🚫 Ocultar</button>
       </div>
       <div class="ex-body" id="exBody${newEi}">
         <div id="rpeBadge${newEi}"></div>
@@ -3654,9 +3671,10 @@ function skipRest() { stopRest(); }
 
 function skipEx(ei) {
   const card = document.getElementById(`exCard${ei}`);
-  card.classList.toggle('skipped');
+  const isSkipped = card.classList.toggle('skipped');
   const btn = document.getElementById(`skipBtn${ei}`);
-  btn.textContent = card.classList.contains('skipped') ? 'Incluir' : '⏭ Saltear';
+  btn.textContent = isSkipped ? '↩ Incluir' : '⏭ Saltear';
+  btn.classList.toggle('danger', isSkipped);
 }
 
 function hideEx(ei) {
