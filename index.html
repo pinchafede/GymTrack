@@ -524,10 +524,8 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   <div id="exList"></div>
   <div class="save-bar-wrap">
     <button class="btn-p" onclick="finishSession()" style="width:100%;font-size:17px;margin-bottom:8px;">✓ FINALIZAR SESIÓN</button>
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-size:11px;color:var(--muted);">El progreso se guarda automáticamente</div>
-      <button class="btn-g danger" onclick="cancelSession()" style="font-size:12px;padding:5px 12px;">✕ Cancelar</button>
-    </div>
+    <button class="btn-g danger" onclick="cancelSession()" style="width:100%;justify-content:center;font-size:14px;">✕ Cancelar sesión</button>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px;">El progreso se guarda automáticamente</div>
   </div>
 </div>
 
@@ -1928,8 +1926,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.1.4';
+const APP_VERSION = '4.1.5';
 // Changelog:
+// 4.1.5 — Fix overlay skip, swipe carrusel, labels, cancelar sesión
 // 4.1.4 — Fix overlay salteado, fix finalizar, labels REPS/PESO/kg, cancelar sesión
 // 4.1.3 — Overlay salteado, fix finalizar, labels reps/kg
 // 4.1.2 — Finalizar sesión, autoguardado, calentamiento en carrusel
@@ -3426,7 +3425,7 @@ function renderCarousel(di) {
         <div class="serie-num">${si+1}</div>
         <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
         <div class="serie-sep">reps</div>
-        ${ex.kg?`<div class="serie-kg-wrap"><input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)"><span class="serie-kg-unit">kg</span></div>`:``}
+        ${ex.kg?`<div class="serie-kg-wrap"><input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)"><span class="serie-kg-unit">Kg</span></div>`:``}
         <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
       </div>`;
     }).join('');
@@ -3475,10 +3474,56 @@ function renderCarousel(di) {
       <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:4px;">${carouselIdx+1} / ${carouselTotal}</div>
     </div>`;
 
-  // Attach swipe handlers
+  // Attach swipe handlers for series
   exercises.forEach(({ex, ei}) => {
     Array.from({length:ex.series},(_,si) => initSerieSwipe(ei, si, ex.series));
   });
+
+  // Attach swipe gesture to carousel track
+  setTimeout(() => initCarouselSwipe(), 80);
+}
+
+function initCarouselSwipe() {
+  const track = document.getElementById('carouselTrack');
+  if (!track) return;
+  // Remove old listeners by cloning
+  const wrap = track.parentElement;
+  if (!wrap) return;
+
+  let startX = 0, startY = 0, dragging = false, diffX = 0;
+
+  wrap.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dragging = true;
+    diffX = 0;
+    track.style.transition = 'none';
+  }, {passive: true});
+
+  wrap.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    diffX = e.touches[0].clientX - startX;
+    const diffY = e.touches[0].clientY - startY;
+    // Only horizontal swipe
+    if (Math.abs(diffX) > Math.abs(diffY) * 1.2) {
+      const base = -(carouselIdx * 100);
+      const pct = (diffX / wrap.offsetWidth) * 100;
+      track.style.transform = `translateX(calc(${base}% + ${diffX}px))`;
+    }
+  }, {passive: true});
+
+  wrap.addEventListener('touchend', e => {
+    if (!dragging) return;
+    dragging = false;
+    track.style.transition = 'transform .35s cubic-bezier(.4,0,.2,1)';
+    if (Math.abs(diffX) > 60) {
+      carouselGo(diffX < 0 ? 1 : -1);
+    } else {
+      // Snap back
+      track.style.transform = `translateX(-${carouselIdx * 100}%)`;
+    }
+    diffX = 0;
+  }, {passive: true});
 }
 
 function carouselGo(dir) {
@@ -3638,7 +3683,7 @@ function renderExList(di) {
           <div style="width:20px;flex-shrink:0;"></div>
           <div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Reps</div>
           <div style="width:12px;flex-shrink:0;"></div>
-          ${ex.kg?`<div style="flex-shrink:0;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);width:84px;">Peso</div>`:''}
+          ${ex.kg?`<div style="flex-shrink:0;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);width:86px;">Peso</div>`:''}
         </div>
         <div id="serieRows${ei}">
           ${Array.from({length:ex.series},(_,si)=>{
@@ -3659,7 +3704,7 @@ function renderExList(di) {
               <div class="serie-num">${si+1}</div>
               <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
               <div class="serie-sep">reps</div>
-              ${ex.kg?`<div class="serie-kg-wrap"><input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)"><span class="serie-kg-unit">kg</span></div>`:``}
+              ${ex.kg?`<div class="serie-kg-wrap"><input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)"><span class="serie-kg-unit">Kg</span></div>`:``}
               <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
             </div>`;
           }).join('')}
@@ -4077,10 +4122,9 @@ function skipEx(ei) {
   const card = document.getElementById(`exCard${ei}`);
   const isSkipped = card.classList.toggle('skipped');
   const btn = document.getElementById(`skipBtn${ei}`);
-  btn.textContent = isSkipped ? '↩ Incluir' : '⏭ Saltear';
-  btn.classList.toggle('danger', isSkipped);
 
   if (isSkipped) {
+    btn.style.display = 'none'; // hide skip button — incluir is inside overlay
     // Show overlay blocking the exercise body
     // Works for both list view (exBody) and carousel (slide content)
     const target = document.getElementById(`exBody${ei}`) || 
@@ -4090,7 +4134,14 @@ function skipEx(ei) {
     const serieRows = document.getElementById(`serieRows${ei}`);
     const rpeBadge  = document.getElementById(`rpeBadge${ei}`);
     
-    if (serieRows && !document.getElementById(`skipOverlay${ei}`)) {
+    if (serieRows) {
+      // Remove existing wrapper if any (re-skip after include)
+      const existing = document.getElementById(`skipWrapper${ei}`);
+      if (existing) {
+        const parent = existing.parentNode;
+        while (existing.firstChild) parent.insertBefore(existing.firstChild, existing);
+        existing.remove();
+      }
       // Wrap serieRows in a relative container with overlay
       const wrapper = document.createElement('div');
       wrapper.style.cssText = 'position:relative;';
@@ -4103,9 +4154,9 @@ function skipEx(ei) {
       overlay.className = 'ex-skip-overlay';
       overlay.id = `skipOverlay${ei}`;
       overlay.style.borderRadius = 'var(--radius-sm)';
-      overlay.innerHTML = `<div style="font-size:28px;">⏭</div>
+      overlay.innerHTML = `<div style="font-size:32px;">⏭</div>
         <div class="ex-skip-overlay-label">Ejercicio salteado</div>
-        <button class="btn-g" style="margin-top:6px;font-size:12px;" onclick="skipEx(${ei})">↩ Incluir</button>`;
+        <button class="btn-p" style="margin-top:10px;padding:10px 28px;font-size:14px;border-radius:var(--radius);" onclick="skipEx(${ei})">↩ Incluir</button>`;
       wrapper.appendChild(overlay);
     }
 
@@ -4130,6 +4181,10 @@ function skipEx(ei) {
       while (wrapper.firstChild) parent.insertBefore(wrapper.firstChild, wrapper);
       wrapper.remove();
     }
+    // Restore skip button
+    btn.textContent = '⏭ Saltear';
+    btn.classList.remove('danger');
+    btn.style.display = '';
   }
 }
 
