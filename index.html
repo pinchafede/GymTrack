@@ -1930,8 +1930,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.2.2';
+const APP_VERSION = '4.2.3';
 // Changelog:
+// 4.2.3 — Slide ejercicio extra en carrusel, fix hidden exercises
 // 4.2.2 — Timer full screen con nombre y próximo ejercicio
 // 4.2.1 — Timer bloquea serie siguiente, overlay full screen, swipe bloqueado
 // 4.2.0 — Vista única carrusel, timer bloquea siguiente, skip parcial
@@ -3317,6 +3318,8 @@ function confirmLeaveWorkout() {
 function startWorkout(di) {
   workoutStartTime = Date.now(); // track session duration
   carouselIdx = 0;
+  // Clear hidden state — hideEx was removed, this prevents old data from hiding exercises
+  db.hidden.set({});
   // Reset RPE for new workout
   Object.keys(currentRpe).forEach(k => delete currentRpe[k]);
   const routine = db.routine.get();
@@ -3365,10 +3368,12 @@ function renderCarousel(di) {
   const exercises = day.exercises.map((ex, ei) => ({ex, ei}))
     .filter(({ei}) => !hidden[`${di}_${ei}`]);
 
-  // Include warmup and cooldown as special slides
+  // Include warmup, exercises, extra slot, and cooldown
+  const extraExercises = day.exercises.slice(exercises.length); // any extras added during workout
   const allSlides = [
     {type:'warm'},
     ...exercises.map(({ex,ei}) => ({type:'ex', ex, ei})),
+    {type:'extra'},
     {type:'cool'},
   ];
   carouselTotal = allSlides.length;
@@ -3398,6 +3403,36 @@ function renderCarousel(di) {
           <div id="${id}DoneCircle" class="serie-check" style="width:48px;height:48px;font-size:20px;margin:0 auto;" onclick="toggleTempoDone('${id}')">○</div>
           <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:6px;">Tocá para marcar como completado</div>
         </div>
+      </div>`;
+    }
+    if (slide.type === 'extra') {
+      return `<div class="carousel-slide">
+        <div class="carousel-ex-header">
+          <div class="carousel-ex-num">OPCIONAL</div>
+          <div class="carousel-ex-name" style="color:var(--muted);">＋ Ejercicio extra</div>
+        </div>
+        <div style="margin-top:8px;">
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <input class="input-f" id="extraName" type="text" placeholder="Nombre del ejercicio" style="flex:1;">
+            <button class="btn-g" onclick="openPredefForExtra()" style="flex-shrink:0;">📋</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Series</label>
+              <div class="stepper"><button class="step-btn" onclick="stepVal('extraS',-1)">−</button><div class="step-val" id="extraS">3</div><button class="step-btn" onclick="stepVal('extraS',1)">+</button></div>
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Reps</label>
+              <div class="stepper"><button class="step-btn" onclick="stepVal('extraR',-1)">−</button><div class="step-val" id="extraR">10</div><button class="step-btn" onclick="stepVal('extraR',1)">+</button></div>
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Con peso</label>
+              <div class="stepper" style="justify-content:center;"><button id="extraKgBtn" class="step-btn" onclick="toggleExtraKg()" style="width:40px;font-size:16px;">✕</button></div>
+            </div>
+          </div>
+          <button class="btn-p" onclick="addExtraToCarousel()" style="width:100%;font-size:16px;">＋ Agregar</button>
+        </div>
+        <div id="extraAddedList" style="margin-top:12px;"></div>
       </div>`;
     }
     const {ex, ei} = slide;
@@ -3774,63 +3809,105 @@ function updateTimedToggleUI() {
 }
 
 // ─── ADD EXTRA TO ROUTINE ─────────────────────────────────────────────────────
-function addExtraToRoutine() {
+let extraKg = false;
+
+function toggleExtraKg() {
+  extraKg = !extraKg;
+  const btn = document.getElementById('extraKgBtn');
+  if (btn) {
+    btn.textContent = extraKg ? '✓' : '✕';
+    btn.style.background = extraKg ? 'var(--accent)' : '';
+    btn.style.color = extraKg ? '#000' : '';
+  }
+}
+
+function addExtraToCarousel() {
   const name = document.getElementById('extraName')?.value.trim();
   if (!name) { toast('Ingresá un nombre para el ejercicio'); return; }
   const series = parseInt(document.getElementById('extraS')?.textContent) || 3;
   const reps   = parseInt(document.getElementById('extraR')?.textContent) || 10;
+  const kg     = extraKg;
+
+  // Save to routine
   const routine = db.routine.get();
   if (!routine?.days?.[currentDayIdx]) return;
-
-  const newEx = { name, series, reps, kg: false, timed: false, nota: '' };
+  const newEx = { name, series, reps, kg, timed: false, nota: '' };
   routine.days[currentDayIdx].exercises.push(newEx);
   db.routine.set(routine);
-
-  // Insert the new exercise card into the DOM without full reload
   const newEi = routine.days[currentDayIdx].exercises.length - 1;
-  const container = document.getElementById('exList');
-  const extraSection = container.querySelector('.extra-section');
-  if (extraSection) {
-    const div = document.createElement('div');
-    div.className = 'ex-card';
-    div.id = `exCard${newEi}`;
-    div.innerHTML = `
-      <div class="ex-header" onclick="toggleEx(${newEi})">
-        <div style="flex:1;">
-          <div class="ex-num">EJERCICIO ${newEi+1}</div>
-          <div class="ex-name">${name}</div>
-          <div style="font-size:12px;color:var(--muted);padding:4px 0 0;">Primera vez · ingresá el peso con el que arrancás 💪</div>
-        </div>
-        <div class="ex-chev" id="exChev${newEi}">›</div>
+
+  // Insert new slide before the 'extra' slide in the carousel track
+  const track = document.getElementById('carouselTrack');
+  const slides = track?.querySelectorAll('.carousel-slide');
+  // The extra slide is the second to last (before cool)
+  const extraSlide = slides ? slides[slides.length - 2] : null;
+
+  if (track && extraSlide) {
+    const seriesHtml = Array.from({length:series},(_,si) => {
+      return `<div class="serie-row${si>0?' locked':''}" id="sr${newEi}_${si}">
+        <div class="serie-num">${si+1}</div>
+        <input class="serie-input filled" type="number" inputmode="decimal" id="r${newEi}_${si}" value="${reps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
+        <div class="serie-sep"></div>
+        ${kg ? `<div class="serie-kg-wrap"><input class="serie-input" type="number" inputmode="decimal" id="k${newEi}_${si}" placeholder="0" min="0" oninput="this.classList.toggle('filled',!!this.value)"><span class="serie-kg-unit">Kg</span></div>` : ''}
+        <div class="serie-check" id="sc${newEi}_${si}" onclick="toggleSerie(${newEi},${si},${series})">○</div>
+      </div>`;
+    }).join('');
+
+    const newSlide = document.createElement('div');
+    newSlide.className = 'carousel-slide';
+    newSlide.innerHTML = `
+      <div class="carousel-ex-header">
+        <div class="carousel-ex-num">EJERCICIO EXTRA</div>
+        <div class="carousel-ex-name" id="exCard${newEi}">${name}</div>
+        <div style="font-size:12px;color:var(--muted);padding:4px 0 6px;">Primera vez · ingresá el peso con el que arrancás 💪</div>
       </div>
-      <div class="ex-actions">
+      <div id="rpeBadge${newEi}"></div>
+      ${kg ? `<div style="display:flex;align-items:center;gap:8px;padding:4px 0 2px;">
+        <div style="width:20px;flex-shrink:0;"></div>
+        <div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Reps</div>
+        <div style="width:12px;flex-shrink:0;"></div>
+        <div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Peso</div>
+      </div>` : ''}
+      <div id="serieRows${newEi}">${seriesHtml}</div>
+      <div class="ex-actions" style="margin-top:8px;">
         <button class="btn-g" onclick="openInfo(${newEi},'${name.replace(/'/g,"\'")}')">💡</button>
         <button class="btn-g" onclick="skipEx(${newEi})" id="skipBtn${newEi}">⏭ Saltear</button>
-      </div>
-      <div class="ex-body" id="exBody${newEi}">
-        <div id="rpeBadge${newEi}"></div>
-        <div id="serieRows${newEi}">
-          ${Array.from({length:series},(_,si)=>`
-            <div class="serie-row" id="sr${newEi}_${si}">
-              <div class="serie-num">${si+1}</div>
-              <input class="serie-input filled" type="number" inputmode="decimal" id="r${newEi}_${si}" value="${reps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
-              <div class="serie-sep">reps</div>
-              <div class="serie-check" id="sc${newEi}_${si}" onclick="toggleSerie(${newEi},${si},${series})">○</div>
-            </div>`).join('')}
-        </div>
       </div>`;
-    container.insertBefore(div, extraSection);
-    // Attach swipe handlers
+
+    track.insertBefore(newSlide, extraSlide);
+
+    // Update total and navigate to the new slide
+    carouselTotal++;
+    // New slide is at position: current slides count - 2 (before extra slide)
+    carouselIdx = Array.from(track.querySelectorAll('.carousel-slide')).indexOf(newSlide);
+    carouselGo(0);
+
+    // Update dots
+    const dotsEl = document.querySelector('.carousel-dots');
+    if (dotsEl) {
+      dotsEl.innerHTML = Array.from({length:carouselTotal},(_,i) =>
+        `<div class="carousel-dot${i===carouselIdx?' active':''}"></div>`
+      ).join('');
+    }
+
+    // Attach swipe handlers for new series
     Array.from({length:series},(_,si) => initSerieSwipe(newEi, si, series));
   }
 
-  // Clear extra fields
+  // Reset fields
   document.getElementById('extraName').value = '';
   document.getElementById('extraS').textContent = '3';
   document.getElementById('extraR').textContent = '10';
+  extraKg = false;
+  const btn = document.getElementById('extraKgBtn');
+  if (btn) { btn.textContent = '✕'; btn.style.background=''; btn.style.color=''; }
+
   toast(`✓ "${name}" agregado`);
   if (navigator.vibrate) navigator.vibrate(40);
 }
+
+// Legacy - kept for saveSession compatibility
+function addExtraToRoutine() { addExtraToCarousel(); }
 
 function autoSaveProgress() {
   // Save current workout state silently — no UI changes, no navigation
