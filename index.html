@@ -343,6 +343,8 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .rest-skip{background:none;border:1px solid var(--accent-border);border-radius:100px;color:var(--accent);font-size:12px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .routine-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .routine-pill.active{border-color:var(--accent);background:rgba(212,245,60,.1);color:var(--accent);font-weight:600;}
+.supp-info-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5;}
+.supp-info-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;flex-shrink:0;width:72px;padding-top:1px;}
 .weight-entry{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);}
 .weight-entry:last-child{border-bottom:none;}
 .weight-entry-kg{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent);line-height:1;}
@@ -596,6 +598,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   </div>
   <div class="sec-label">Configuración</div>
   <div class="card">
+    <div class="list-row" onclick="navTo('supp-history')"><div style="font-size:14px;">📊 Historial de suplementos</div><div style="color:var(--muted)">›</div></div>
     <div class="list-row" onclick="navTo('settings')"><div style="font-size:14px;">⚙️ Ajustes</div><div style="color:var(--muted)">›</div></div>
   </div>
 </div>
@@ -796,6 +799,12 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     </div>
 
   </div>
+</div>
+
+<!-- ═══ SUPP HISTORY ═══ -->
+<div id="s-supp-history" class="screen">
+  <div class="page-header"><div class="btn-back" onclick="navBack()">‹</div><div class="page-title">SUPLEMENTOS</div></div>
+  <div id="suppHistContent" style="padding:4px 0 40px;"></div>
 </div>
 
 <!-- ═══ SETTINGS ═══ -->
@@ -1079,11 +1088,17 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Dosis / notas</label>
       <input id="seDosis" class="input-f" type="text" placeholder="Ej: 30g post-entreno" style="margin-bottom:14px;">
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Momento</label>
-      <select id="seMomento" class="input-f" style="margin-bottom:20px;cursor:pointer;">
+      <select id="seMomento" class="input-f" style="margin-bottom:14px;cursor:pointer;">
         <option value="mañana">🌅 Mañana</option><option value="pre">⚡ Pre-entreno</option>
         <option value="post">💪 Post-entreno</option><option value="noche">🌙 Noche</option>
         <option value="cualquier">🕐 Cualquier momento</option>
       </select>
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Tomas por día</label>
+      <div class="stepper" style="margin-bottom:20px;">
+        <button class="step-btn" onclick="stepVal('seTomas',-1)">−</button>
+        <div class="step-val" id="seTomas">1</div>
+        <button class="step-btn" onclick="stepVal('seTomas',1)">+</button>
+      </div>
       <button onclick="saveSuppEdit()" class="btn-p" style="font-size:18px;">GUARDAR</button>
     </div>
   </div>
@@ -1102,6 +1117,21 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <button class="btn-g" id="calShareBtn" style="width:100%;justify-content:center;" onclick="shareSession()">📤 Compartir resumen</button>
       <button class="btn-g" id="calCancelBtn" style="width:100%;justify-content:center;" onclick="document.getElementById('calOverlay').classList.remove('open')">Seguir editando</button>
     </div>
+  </div>
+</div>
+
+<!-- Supp info overlay -->
+<div class="overlay" id="suppInfoOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet" style="max-height:88vh;overflow-y:auto;">
+    <div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;">SUPLEMENTO</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="suppInfoTitle">—</div>
+      </div>
+      <div class="sheet-close" onclick="document.getElementById('suppInfoOverlay').classList.remove('open')">✕</div>
+    </div>
+    <div id="suppInfoBody" style="padding:0 18px 24px;"></div>
   </div>
 </div>
 
@@ -1776,8 +1806,104 @@ function localDateStr(date) {
   return `${y}-${m}-${day}`;
 }
 
-const APP_VERSION = '4.0.1';
+// ═══════════════════════════════════════════════
+// SUPLEMENTOS — BASE DE INFO
+// ═══════════════════════════════════════════════
+const SUPP_INFO = {
+  creatina: { nombre:"Creatina monohidrato", desc:"Aumenta la disponibilidad de fosfocreatina en el músculo, mejorando el rendimiento en ejercicios de alta intensidad. Uno de los suplementos más estudiados y seguros.", dosis:(kg)=>kg>=80?"5g/día":"3-5g/día", cuando:"Post-entreno o en cualquier momento. La consistencia importa más que el timing.", carga:"Fase de carga opcional: 20g/día en 4 tomas por 5-7 días, luego 3-5g/día de mantenimiento.", combinar:"Con carbohidratos. Sin contraindicaciones con proteína.", evitar:"Mantenerse bien hidratado. No es necesario ciclar.", tiempo:"Saturación completa en 3-4 semanas sin carga, 1 semana con carga.", keywords:["creatina","crea","creatine"] },
+  proteina: { nombre:"Proteína Whey", desc:"Proteína de suero de rápida absorción. Ideal para estimular la síntesis proteica muscular post-entreno.", dosis:(kg)=>`${Math.round(kg*0.3)}-${Math.round(kg*0.4)}g por toma`, cuando:"Dentro de los 30-60 min post-entreno.", carga:null, combinar:"Con carbohidratos post-entreno para recuperación óptima.", evitar:"No exceder 40g por toma. Moderar con intolerancia a la lactosa.", tiempo:"Efectos en composición corporal en 4-8 semanas.", keywords:["proteina","whey","protein","caseina","proteína"] },
+  omega3: { nombre:"Omega 3 (EPA/DHA)", desc:"Ácidos grasos esenciales antiinflamatorios. Mejoran la salud cardiovascular, reducen el dolor muscular post-entreno y apoyan la función cerebral.", dosis:(kg)=>kg>=90?"3-4g/día":"2-3g/día", cuando:"Con las comidas principales para mejor absorción.", carga:null, combinar:"Con vitamina D. Con comidas que contengan grasa.", evitar:"Dosis >5g pueden afectar la coagulación. Verificar frescura del producto.", tiempo:"Efectos antiinflamatorios notorios en 6-12 semanas.", keywords:["omega","omega3","omega-3","fish oil","pescado"] },
+  magnesio: { nombre:"Magnesio (citrato)", desc:"Mineral esencial para más de 300 reacciones enzimáticas. Mejora la calidad del sueño, reduce calambres y apoya la función muscular.", dosis:(kg)=>kg>=80?"400-500mg/día":"300-400mg/día", cuando:"Noche, 30-60 min antes de dormir.", carga:null, combinar:"Con zinc y vitamina B6 (ZMA) para sueño y testosterona.", evitar:"Dosis altas causan efecto laxante. Separar del calcio.", tiempo:"Mejoras en sueño en 1-2 semanas.", keywords:["magnesio","magnesium","citrato de magnesio"] },
+  sinefrina: { nombre:"Sinefrina (Citrus Aurantium)", desc:"Estimulante suave que aumenta el gasto energético y suprime el apetito. Alternativa más segura a la efedrina.", dosis:(kg)=>"10-20mg por toma (máx 60mg/día)", cuando:"Pre-entreno o por la mañana. Evitar después de las 3pm.", carga:null, combinar:"Con cafeína para potenciar el efecto termogénico.", evitar:"No combinar con IMAO ni antidepresivos. Evitar con hipertensión.", tiempo:"Efectos en energía inmediatos. En grasa corporal en 4-8 semanas.", keywords:["sinefrina","citrus aurantium","naranja amarga"] },
+  vitamina_d: { nombre:"Vitamina D3", desc:"Prohormonaesencial para la salud ósea, función inmune, estado de ánimo y síntesis de testosterona. Deficiencia muy común.", dosis:(kg)=>kg>=90?"4000-5000 UI/día":"2000-4000 UI/día", cuando:"Por la mañana con el desayuno (con grasa para absorción).", carga:null, combinar:"Siempre con vitamina K2. Con omega 3.", evitar:"No exceder 10.000 UI/día sin análisis de sangre.", tiempo:"Niveles normalizados en 2-3 meses.", keywords:["vitamina d","vitamina d3","vit d","vitamin d"] },
+  zinc: { nombre:"Zinc", desc:"Mineral esencial para síntesis de testosterona, función inmune y recuperación muscular.", dosis:(kg)=>"15-30mg/día", cuando:"Noche o lejos de las comidas principales.", carga:null, combinar:"Con magnesio (ZMA).", evitar:"No exceder 40mg/día. Puede causar náuseas en ayunas.", tiempo:"Niveles normalizados en 4-8 semanas.", keywords:["zinc","cinc"] },
+  cafeina: { nombre:"Cafeína", desc:"El estimulante más estudiado. Mejora el rendimiento, la fuerza, la resistencia y la concentración.", dosis:(kg)=>`${Math.round(kg*3)}-${Math.round(kg*6)}mg/día`, cuando:"30-60 min pre-entreno. Evitar después de las 2-3pm.", carga:null, combinar:"Con L-teanina (200mg) para reducir ansiedad.", evitar:"Desarrolla tolerancia — considerar ciclos. Evitar con ansiedad o hipertensión.", tiempo:"Efectos inmediatos. Tolerancia en 1-2 semanas.", keywords:["cafeina","cafeína","caffeine","cafe"] },
+  bcaa: { nombre:"BCAA", desc:"Leucina, isoleucina y valina. Útiles si no se consume suficiente proteína total en la dieta.", dosis:(kg)=>`${Math.round(kg*0.2)}g por toma`, cuando:"Pre o intra-entreno si se entrena en ayunas.", carga:null, combinar:"Con carbohidratos intra-entreno.", evitar:"Si consumís whey en cantidad suficiente, los BCAA tienen poco beneficio adicional.", tiempo:"Reducción de fatiga inmediata.", keywords:["bcaa","aminoacidos","aminoácidos","ramificados"] },
+  glutamina: { nombre:"L-Glutamina", desc:"Apoya la recuperación, el sistema inmune y la salud intestinal.", dosis:(kg)=>`${Math.round(kg*0.2)}-${Math.round(kg*0.3)}g/día`, cuando:"Post-entreno o antes de dormir.", carga:null, combinar:"Con proteína post-entreno.", evitar:"Evidencia limitada si el consumo de proteína ya es suficiente.", tiempo:"Efectos inmunológicos en 2-4 semanas.", keywords:["glutamina","glutamine"] },
+  beta_alanina: { nombre:"Beta-alanina", desc:"Aumenta la carnosina muscular, retrasando la acidosis y mejorando el rendimiento en esfuerzos de 1-4 minutos.", dosis:(kg)=>"3.2-6.4g/día", cuando:"Pre-entreno. Dividir en tomas de 1.6g para reducir el picor.", carga:null, combinar:"Con creatina y cafeína en el pre-entreno.", evitar:"El picor (parestesia) es normal e inofensivo.", tiempo:"Saturación de carnosina en 4 semanas.", keywords:["beta alanina","beta-alanina","betaalanina"] },
+  ashwagandha: { nombre:"Ashwagandha (KSM-66)", desc:"Adaptógeno que reduce el cortisol, mejora el estrés, el sueño y modestamente la testosterona y fuerza.", dosis:(kg)=>"300-600mg/día del extracto estandarizado", cuando:"Noche o dividido en 2 tomas. Con comidas.", carga:null, combinar:"Con magnesio para potenciar efectos en sueño.", evitar:"Evitar en enfermedades autoinmunes. Ciclos de 8-12 semanas.", tiempo:"Reducción de cortisol y sueño en 4-8 semanas.", keywords:["ashwagandha","withanolides","adaptogeno","adaptógeno"] },
+  melatonina: { nombre:"Melatonina", desc:"Hormona del sueño. Ayuda a conciliar el sueño y regular el ciclo circadiano. Dosis bajas son más efectivas.", dosis:(kg)=>"0.5-1mg (dosis bajas más efectivas que 5-10mg)", cuando:"30-60 min antes de dormir, a la misma hora todos los días.", carga:null, combinar:"Con magnesio y ashwagandha para mejorar el sueño profundo.", evitar:"No usar como sedante. No exceder 3mg en uso regular.", tiempo:"Efectos inmediatos en latencia del sueño.", keywords:["melatonina","melatonin"] },
+  colageno: { nombre:"Colágeno hidrolizado", desc:"Apoya la salud de tendones, ligamentos y cartílagos. Especialmente útil para deportistas o prevención de lesiones.", dosis:(kg)=>"10-15g/día", cuando:"30-60 min pre-entreno con vitamina C para maximizar síntesis.", carga:null, combinar:"Siempre con vitamina C (50-200mg) para activar la síntesis.", evitar:"No reemplaza a la proteína whey para hipertrofia.", tiempo:"Mejoras en articulaciones en 8-12 semanas.", keywords:["colageno","colágeno","collagen","gelatina"] },
+  vitamina_c: { nombre:"Vitamina C", desc:"Antioxidante esencial para síntesis de colágeno, función inmune y absorción de hierro.", dosis:(kg)=>"500-1000mg/día", cuando:"Con las comidas.", carga:null, combinar:"Con colágeno pre-entreno. Con hierro para mejor absorción.", evitar:"Dosis >2g pueden causar malestar digestivo.", tiempo:"Función inmune en 1-2 semanas.", keywords:["vitamina c","vitamin c","acido ascorbico","ascórbico"] },
+};
+
+function findSuppInfo(suppName) {
+  const name = (suppName||'').toLowerCase();
+  for (const info of Object.values(SUPP_INFO)) {
+    if (info.keywords.some(k => name.includes(k))) return info;
+  }
+  return null;
+}
+
+function openSuppInfo(suppId) {
+  const supp = db.supps.get().find(s=>s.id===suppId);
+  if (!supp) return;
+  const info = findSuppInfo(supp.name);
+  const peso = parseFloat(db.profile.get().peso) || 75;
+  document.getElementById('suppInfoTitle').textContent = info?.nombre || supp.name;
+  let html = '';
+  if (info) {
+    const dosis = typeof info.dosis === 'function' ? info.dosis(peso) : info.dosis;
+    html += `<div style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:14px;">${info.desc}</div>`;
+    html += `<div class="supp-info-row"><div class="supp-info-lbl">💊 Dosis</div><div>${dosis} <span style="font-size:11px;color:var(--muted);">(para ${peso}kg)</span></div></div>`;
+    html += `<div class="supp-info-row"><div class="supp-info-lbl">⏰ Cuándo</div><div>${info.cuando}</div></div>`;
+    if (info.carga) html += `<div class="supp-info-row"><div class="supp-info-lbl">📈 Carga</div><div>${info.carga}</div></div>`;
+    html += `<div class="supp-info-row"><div class="supp-info-lbl">✅ Combinar</div><div>${info.combinar}</div></div>`;
+    html += `<div class="supp-info-row" style="border:none;"><div class="supp-info-lbl" style="color:#f08080;">⚠️ Evitar</div><div>${info.evitar}</div></div>`;
+    html += `<div style="margin-top:10px;padding:10px 12px;background:rgba(212,245,60,.06);border:1px solid var(--accent-border);border-radius:var(--radius-sm);font-size:12px;color:var(--muted);">⏱ ${info.tiempo}</div>`;
+  } else {
+    html = `<div style="padding:20px 0;color:var(--muted);text-align:center;font-size:13px;">Sin información disponible para este suplemento.</div>`;
+  }
+  document.getElementById('suppInfoBody').innerHTML = html;
+  document.getElementById('suppInfoOverlay').classList.add('open');
+}
+
+function renderSuppHistory() {
+  const supps = db.supps.get();
+  const logs = db.suppLogs.get();
+  const container = document.getElementById('suppHistContent');
+  if (!supps.length) { container.innerHTML = '<div class="no-data">No tenés suplementos cargados.</div>'; return; }
+  let html = '';
+  supps.forEach(s => {
+    const sLogs = logs.filter(l=>l.suppId===s.id);
+    const total = sLogs.length;
+    const startDate = s.startDate ? new Date(s.startDate) : null;
+    const diasDesde = startDate ? Math.floor((Date.now()-startDate)/86400000) : null;
+    // Racha
+    const logDates = [...new Set(sLogs.map(l=>localDateStr(new Date(l.ts))))].sort().reverse();
+    let racha=0, checkD=localDateStr(), restUsed=0;
+    for (const d of logDates) {
+      if (d===checkD) { racha++; restUsed=0; const dt=new Date(checkD); dt.setDate(dt.getDate()-1); checkD=localDateStr(dt); }
+      else if (new Date(checkD)-new Date(d)<=86400000*2 && restUsed===0) { restUsed=1; racha++; const dt=new Date(checkD); dt.setDate(dt.getDate()-2); checkD=localDateStr(dt); }
+      else break;
+    }
+    // Heatmap 30 días
+    const today = localDateStr();
+    const cells = Array.from({length:30},(_,i)=>{
+      const dt = new Date(); dt.setDate(dt.getDate()-29+i);
+      const k = localDateStr(dt);
+      const hasToma = sLogs.some(l=>localDateStr(new Date(l.ts))===k);
+      return `<div style="width:14px;height:14px;border-radius:2px;background:${hasToma?'var(--accent)':'var(--surface)'};border:1px solid var(--border);flex-shrink:0;" title="${k}"></div>`;
+    }).join('');
+    const info = findSuppInfo(s.name);
+    html += `<div class="sec-label">${s.name}</div>
+    <div style="margin:0 16px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border);">
+        <div style="padding:12px;text-align:center;border-right:1px solid var(--border);"><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--accent);line-height:1;">${total}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">tomas totales</div></div>
+        <div style="padding:12px;text-align:center;border-right:1px solid var(--border);"><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${racha>=7?'var(--orange)':'var(--accent)'};line-height:1;">${racha}${racha>=7?' 🔥':''}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">racha días</div></div>
+        <div style="padding:12px;text-align:center;"><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--accent);line-height:1;">${diasDesde!==null?diasDesde:'—'}</div><div style="font-size:10px;color:var(--muted);margin-top:2px;">días activo</div></div>
+      </div>
+      ${startDate?`<div style="padding:6px 14px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);">Inicio: ${startDate.toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'})}</div>`:''}
+      <div style="padding:12px 14px;"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Últimos 30 días</div><div style="display:flex;flex-wrap:wrap;gap:2px;">${cells}</div></div>
+      ${info?`<div style="padding:8px 14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);">💊 ${typeof info.dosis==='function'?info.dosis(parseFloat(db.profile.get().peso)||75):info.dosis} · ⏰ ${info.cuando.split('.')[0]}</div>`:''}
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+const APP_VERSION = '4.1.0';
 // Changelog:
+// 4.1.0 — Suplementos: múltiples tomas, historial, base de info 💡
 // 4.0.1 — Racha tolera 1 día descanso, quitar ocultar del workout
 // 4.0.0 — Rutinas múltiples (crear, cambiar, eliminar)
 // 3.9.7 — Coach mejorado, progresión automática sugerida
@@ -1870,6 +1996,7 @@ const db = {
   sports:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sports')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_sports',JSON.stringify(v)) },
   sportLogs:  { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sportlogs')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_sportlogs',JSON.stringify(v)) },
   supps:      { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_supps')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_supps',JSON.stringify(v)) },
+  suppLogs:   { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_supp_logs')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_supp_logs',JSON.stringify(v)) },
   suppToday:  {
     key:()=>'gt_supp_'+localDateStr(),
     get:()=>{ try{return JSON.parse(localStorage.getItem('gt_supp_'+localDateStr())||'{}')}catch{return{}} },
@@ -2191,6 +2318,7 @@ function navTo(id, back) {
   if (id==='supplements') renderSupplements();
   if (id==='settings') loadSettings();
   if (id==='profile') loadProfile();
+  if (id==='supp-history') renderSuppHistory();
   if (id==='photos') renderPhotoGrid();
 
   // Snap all screens to clean state
@@ -3078,7 +3206,12 @@ function renderSuppWidget() {
       <div style="height:100%;width:${pct}%;background:${allDone?'var(--accent)':'var(--orange)'};transition:width .4s;border-radius:2px;"></div>
     </div>
     ${supps.slice(0,4).map(s=>{
-      const chk = today[s.id]?.done;
+      const tomas = s.tomas || 1;
+      const todasTomadas = Array.from({length:tomas},(_,ti)=>{
+        const k = tomas>1 ? `${s.id}_${ti}` : s.id;
+        return today[k]?.done;
+      }).every(Boolean);
+      const chk = todasTomadas;
       return `<div class="sw-row" onclick="event.stopPropagation();toggleSupp('${s.id}')">
         <div class="sw-dot${chk?' done':''}"></div>
         <div class="sw-name${chk?' done':''}">${s.name}</div>
@@ -4627,11 +4760,21 @@ function resetSuppToday() {
   toast('Checks de hoy reseteados');
 }
 
-function toggleSupp(id) {
+function toggleSupp(id, tomaIdx) {
   const today = db.suppToday.get();
-  const checking = !today[id]?.done;
-  if (today[id]?.done) delete today[id];
-  else today[id] = {done:true, hora:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})};
+  const key = tomaIdx !== undefined ? `${id}_${tomaIdx}` : id;
+  const checking = !today[key]?.done;
+  const hora = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+  if (today[key]?.done) {
+    delete today[key];
+  } else {
+    today[key] = {done:true, hora};
+    // Log esta toma en el historial permanente
+    const logs = db.suppLogs.get();
+    logs.push({ suppId: id, ts: new Date().toISOString(), hora });
+    db.suppLogs.set(logs);
+  }
   db.suppToday.set(today);
   if (checking && navigator.vibrate) navigator.vibrate(30);
   renderSuppWidget();
@@ -4664,15 +4807,27 @@ function renderSupplements() {
     if (!gs.length) return;
     html += `<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;margin-bottom:8px;padding-left:4px;">${label}</div>`;
     gs.forEach(s=>{
-      const chk = today[s.id]?.done;
+      const tomas = s.tomas || 1;
+      const todasTomadas = Array.from({length:tomas},(_,ti)=>{
+        const k = tomas>1 ? `${s.id}_${ti}` : s.id;
+        return today[k]?.done;
+      }).every(Boolean);
+      const chk = todasTomadas;
       html += `<div class="supp-card${chk?' chk':''}">
         <div class="supp-row">
-          <div class="supp-check${chk?' done':''}" onclick="toggleSupp('${s.id}')">${chk?'✓':''}</div>
+          <div style="display:flex;flex-direction:column;gap:4px;margin-right:4px;">
+            ${Array.from({length: s.tomas||1}, (_,ti) => {
+              const tKey = (s.tomas||1)>1 ? `${s.id}_${ti}` : s.id;
+              const tChk = today[tKey]?.done;
+              return `<div class="supp-check${tChk?' done':''}" onclick="toggleSupp('${s.id}',${ti})" title="Toma ${ti+1}">${tChk?'✓':ti+1}</div>`;
+            }).join('')}
+          </div>
           <div class="supp-info" onclick="toggleSuppExpand('se_${s.id}')">
             <div class="supp-name${chk?' done':''}">${s.name}</div>
-            <div class="supp-meta">${s.dosis||''}${chk?' · '+today[s.id].hora:''}</div>
+            <div class="supp-meta">${s.dosis||''}${s.tomas>1?' · '+s.tomas+' tomas/día':''}${chk?' · última: '+today[s.id]?.hora||today[s.id+'_0']?.hora:''}</div>
           </div>
           <div style="display:flex;gap:6px;">
+            <button class="btn-g" onclick="openSuppInfo('${s.id}')" style="padding:5px 8px;">💡</button>
             <button class="btn-g" onclick="openSuppEdit('${s.id}')" style="padding:5px 8px;">✏️</button>
             <button class="btn-g danger" onclick="deleteSupp('${s.id}')" style="padding:5px 8px;">✕</button>
           </div>
@@ -4696,6 +4851,7 @@ function openSuppEdit(id) {
   document.getElementById('seNombre').value = s?.name||'';
   document.getElementById('seDosis').value = s?.dosis||'';
   document.getElementById('seMomento').value = s?.momento||'post';
+  document.getElementById('seTomas').textContent = s?.tomas||1;
   document.getElementById('suppEditOverlay').classList.add('open');
 }
 
@@ -4703,7 +4859,16 @@ function saveSuppEdit() {
   const nombre = document.getElementById('seNombre').value.trim();
   if (!nombre) { toast('Poné un nombre'); return; }
   const supps = db.supps.get();
-  const data = { id: editingSuppId||`su_${Date.now()}`, name:nombre, dosis:document.getElementById('seDosis').value.trim(), momento:document.getElementById('seMomento').value };
+  const tomas = parseInt(document.getElementById('seTomas')?.textContent)||1;
+  const existingSupp = editingSuppId ? db.supps.get().find(s=>s.id===editingSuppId) : null;
+  const data = {
+    id: editingSuppId||`su_${Date.now()}`,
+    name: nombre,
+    dosis: document.getElementById('seDosis').value.trim(),
+    momento: document.getElementById('seMomento').value,
+    tomas,
+    startDate: existingSupp?.startDate || localDateStr(),
+  };
   if (editingSuppId) { const i=supps.findIndex(s=>s.id===editingSuppId); if(i>=0) supps[i]=data; else supps.push(data); }
   else supps.push(data);
   db.supps.set(supps);
