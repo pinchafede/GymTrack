@@ -518,11 +518,8 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   </div>
   <div id="exList"></div>
   <div class="save-bar-wrap">
-    <textarea id="sessNota" rows="2" placeholder="¿Cómo te sentiste? Notas de la sesión..."
-      style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);
-             color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px 12px;
-             resize:none;outline:none;line-height:1.5;margin-bottom:10px;"></textarea>
-    <button class="btn-p" onclick="saveSession()" style="width:100%;">GUARDAR SESIÓN</button>
+    <button class="btn-p" onclick="finishSession()" style="width:100%;font-size:17px;">✓ FINALIZAR SESIÓN</button>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px;">El progreso se guarda automáticamente</div>
   </div>
 </div>
 
@@ -1923,8 +1920,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.1.1';
+const APP_VERSION = '4.1.2';
 // Changelog:
+// 4.1.2 — Finalizar sesión, autoguardado, calentamiento en carrusel
 // 4.1.1 — Vista carrusel en workout (toggle ≡/▷)
 // 4.1.0 — Suplementos: múltiples tomas, historial, base de info 💡
 // 4.0.1 — Racha tolera 1 día descanso, quitar ocultar del workout
@@ -3342,13 +3340,42 @@ function renderCarousel(di) {
   const exercises = day.exercises.map((ex, ei) => ({ex, ei}))
     .filter(({ei}) => !hidden[`${di}_${ei}`]);
 
-  carouselTotal = exercises.length;
+  // Include warmup and cooldown as special slides
+  const allSlides = [
+    {type:'warm'},
+    ...exercises.map(({ex,ei}) => ({type:'ex', ex, ei})),
+    {type:'cool'},
+  ];
+  carouselTotal = allSlides.length;
   if (carouselIdx >= carouselTotal) carouselIdx = 0;
 
   const container = document.getElementById('exList');
 
   // Build all slides
-  const slides = exercises.map(({ex, ei}) => {
+  const slides = allSlides.map((slide) => {
+    if (slide.type === 'warm' || slide.type === 'cool') {
+      const isWarm = slide.type === 'warm';
+      const color = isWarm ? '#8fcc44' : '#44aacc';
+      const emoji = isWarm ? '🔥' : '❄️';
+      const label = isWarm ? 'Calentamiento' : 'Vuelta a la calma';
+      const id = isWarm ? 'warm' : 'cool';
+      return `<div class="carousel-slide">
+        <div class="carousel-ex-header">
+          <div class="carousel-ex-num">${isWarm ? 'INICIO' : 'CIERRE'}</div>
+          <div class="carousel-ex-name" style="color:${color};">${emoji} ${label}</div>
+        </div>
+        <div class="tempo-grid" style="margin-top:8px;">
+          <div class="tempo-field"><label>Tiempo (min)</label><input class="input-f sm" type="number" inputmode="decimal" id="${id}T" placeholder="10" oninput="this.classList.toggle('filled',!!this.value)"></div>
+          <div class="tempo-field"><label>Velocidad (km/h)</label><input class="input-f sm" type="number" inputmode="decimal" id="${id}V" placeholder="6.0" oninput="this.classList.toggle('filled',!!this.value)"></div>
+          ${isWarm ? `<div class="tempo-field"><label>Inclinación (%)</label><input class="input-f sm" type="number" inputmode="decimal" id="${id}I" placeholder="1.5" oninput="this.classList.toggle('filled',!!this.value)"></div>` : ''}
+        </div>
+        <div style="margin-top:16px;">
+          <div id="${id}DoneCircle" class="serie-check" style="width:48px;height:48px;font-size:20px;margin:0 auto;" onclick="toggleTempoDone('${id}')">○</div>
+          <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:6px;">Tocá para marcar como completado</div>
+        </div>
+      </div>`;
+    }
+    const {ex, ei} = slide;
     const exSessions = sessions.map(s=>s.exercises?.[ei]).filter(Boolean);
     const badge = getExBadge(exSessions);
     const lastKg = badge?.lastKg || null;
@@ -3391,7 +3418,7 @@ function renderCarousel(di) {
         <button class="btn-g" onclick="skipEx(${ei})" id="skipBtn${ei}">⏭ Saltear</button>
       </div>
     </div>`;
-  }).join('');
+  }).join(''); // end of allSlides.map
 
   // Progress bar pct
   const pct = carouselTotal > 0 ? Math.round((carouselIdx / carouselTotal) * 100) : 0;
@@ -3406,7 +3433,7 @@ function renderCarousel(di) {
     <div class="carousel-nav">
       <button class="carousel-prev${carouselIdx===0?' disabled':''}" onclick="carouselGo(-1)">‹</button>
       <div class="carousel-dots">
-        ${exercises.map((_,i)=>`<div class="carousel-dot${i===carouselIdx?' active':''}"></div>`).join('')}
+        ${allSlides.map((_,i)=>`<div class="carousel-dot${i===carouselIdx?' active':''}"></div>`).join('')}
       </div>
       <button class="carousel-next${carouselIdx===carouselTotal-1?' disabled':''}" onclick="carouselGo(1)">›</button>
     </div>
@@ -3626,7 +3653,7 @@ function renderExList(di) {
   html += `<div class="tempo-block cool" id="coolBlock" style="margin-bottom:0;">
     <div class="tempo-header" onclick="toggleTempo('cool')">
       <span style="font-size:16px;">❄️</span>
-      <div style="flex:1;"><div class="tempo-title" style="color:#44aacc;">Vuelta a la calma</div><div style="font-size:11px;color:var(--muted);">Estiramiento · tocá para registrar</div></div>
+      <div style="flex:1;"><div class="tempo-title" style="color:#44aacc;">Vuelta a la calma</div><div style="font-size:11px;color:var(--muted);">Cinta · tocá para registrar</div></div>
       <div id="coolDoneCircle" class="serie-check" style="margin-left:0;" onclick="event.stopPropagation();toggleTempoDone('cool')">○</div>
     </div>
     <div class="tempo-body" id="coolBody">
@@ -3832,6 +3859,41 @@ function addExtraToRoutine() {
   if (navigator.vibrate) navigator.vibrate(40);
 }
 
+function autoSaveProgress() {
+  // Save current workout state silently — no UI changes, no navigation
+  try {
+    const routine = db.routine.get();
+    const day = routine?.days?.[currentDayIdx];
+    if (!day) return;
+    const exercises = {};
+    day.exercises.forEach((ex, ei) => {
+      const series = Array.from({length:ex.series},(_,si)=>{
+        const reps = parseFloat(document.getElementById(`r${ei}_${si}`)?.value)||0;
+        const kg = ex.kg ? parseFloat(document.getElementById(`k${ei}_${si}`)?.value)||0 : null;
+        const done = document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')||false;
+        return {reps, kg, done};
+      });
+      exercises[ei] = {name:ex.name, reps:ex.reps, kg:ex.kg, series, rpe: currentRpe[ei]??null};
+    });
+    const draft = { ts: workoutStartTime ? new Date(workoutStartTime).toISOString() : new Date().toISOString(), dayIdx: currentDayIdx, exercises, draft: true };
+    localStorage.setItem('gt_workout_draft', JSON.stringify(draft));
+  } catch(e) {}
+}
+
+function loadWorkoutDraft() {
+  try {
+    const draft = JSON.parse(localStorage.getItem('gt_workout_draft')||'null');
+    if (!draft || !draft.draft) return false;
+    const draftDate = localDateStr(new Date(draft.ts));
+    if (draftDate !== localDateStr()) { localStorage.removeItem('gt_workout_draft'); return false; }
+    return draft;
+  } catch { return false; }
+}
+
+function clearWorkoutDraft() {
+  localStorage.removeItem('gt_workout_draft');
+}
+
 function toggleEx(ei) {
   const body = document.getElementById(`exBody${ei}`);
   const chev = document.getElementById(`exChev${ei}`);
@@ -3848,6 +3910,9 @@ function toggleSerie(ei, si, totalSeries) {
   row.classList.toggle('done-row', isDone);
 
   if (isDone && navigator.vibrate) navigator.vibrate(40);
+
+  // Autoguardado silencioso del estado actual
+  if (isDone) autoSaveProgress();
 
   const routine = db.routine.get();
   const day = routine.days[currentDayIdx];
@@ -3886,28 +3951,32 @@ function toggleSerie(ei, si, totalSeries) {
         if (curChev) curChev.classList.remove('open');
 
         // Open next exercise
-        const nextEi = ei + 1;
-        const nextCard = document.getElementById(`exCard${nextEi}`);
-        if (nextCard) {
+        if (workoutView === 'carousel') {
+          // Carousel: advance to next slide (skip warm/cool slide 0, go +2)
           setTimeout(() => {
-            const nextBody = document.getElementById(`exBody${nextEi}`);
-            const nextChev = document.getElementById(`exChev${nextEi}`);
-            if (nextBody) nextBody.classList.add('open');
-            if (nextChev) nextChev.classList.add('open');
-
-            // Scroll to the card accounting for sticky header height
-            const screen = document.getElementById('s-workout');
-            const headerEl = screen?.querySelector('.workout-header');
-            const headerH = headerEl ? headerEl.offsetHeight : 80;
-            const cardTop = nextCard.getBoundingClientRect().top;
-            const scrollEl = screen || window;
-            const offset = cardTop - headerH - 12; // 12px breathing room
-            if (screen) {
-              screen.scrollBy({ top: offset, behavior: 'smooth' });
-            } else {
-              window.scrollBy({ top: offset, behavior: 'smooth' });
+            if (carouselIdx < carouselTotal - 1) {
+              carouselIdx++;
+              carouselGo(0);
             }
-          }, 150);
+          }, 200);
+        } else {
+          const nextEi = ei + 1;
+          const nextCard = document.getElementById(`exCard${nextEi}`);
+          if (nextCard) {
+            setTimeout(() => {
+              const nextBody = document.getElementById(`exBody${nextEi}`);
+              const nextChev = document.getElementById(`exChev${nextEi}`);
+              if (nextBody) nextBody.classList.add('open');
+              if (nextChev) nextChev.classList.add('open');
+              const screen = document.getElementById('s-workout');
+              const headerEl = screen?.querySelector('.workout-header');
+              const headerH = headerEl ? headerEl.offsetHeight : 80;
+              const cardTop = nextCard.getBoundingClientRect().top;
+              const offset = cardTop - headerH - 12;
+              if (screen) screen.scrollBy({ top: offset, behavior: 'smooth' });
+              else window.scrollBy({ top: offset, behavior: 'smooth' });
+            }, 150);
+          }
         }
       });
       // Rest timer starts AFTER RPE sheet closes (handled inside selectRpeSheet)
@@ -4031,6 +4100,23 @@ function renderBadge(badge) {
   return `<span class="badge ${cls}">${badge.text}</span>`;
 }
 
+function finishSession() {
+  // Confirm if very few series done
+  const routine = db.routine.get();
+  const day = routine?.days?.[currentDayIdx];
+  if (!day) return;
+  let doneSeries = 0;
+  day.exercises.forEach((ex, ei) => {
+    for (let si = 0; si < ex.series; si++) {
+      if (document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')) doneSeries++;
+    }
+  });
+  if (doneSeries === 0) {
+    if (!confirm('No completaste ninguna serie. ¿Finalizar de todas formas?')) return;
+  }
+  saveSession();
+}
+
 function saveSession() {
   stopRest();
   const routine = db.routine.get();
@@ -4090,6 +4176,7 @@ function saveSession() {
   // Save
   allSessions.push(sess);
   db.sessions.set(allSessions);
+  clearWorkoutDraft(); // remove draft now that session is saved
   if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 120]);
   // Auto-sync to Drive if connected (fully silent — never interrupts post-workout flow)
   if (gdriveToken) setTimeout(() => gdriveUpload(true).catch(()=>{}), 1500);
