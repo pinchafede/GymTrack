@@ -360,8 +360,9 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .carousel-prev:active,.carousel-next:active{background:var(--surface);transform:scale(.95);}
 .carousel-prev.disabled,.carousel-next.disabled{opacity:.3;pointer-events:none;}
 .carousel-progress{height:3px;background:var(--surface2);margin:0 16px 0;}
-.rest-overlay{position:absolute;left:0;right:0;bottom:0;background:rgba(10,10,10,.93);border-radius:0 0 var(--radius) var(--radius);z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px 20px;gap:10px;}
+.rest-overlay{position:fixed;inset:0;background:#0a0a0a;z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;}
 .rest-overlay.show{display:flex;}
+.rest-overlay-exname{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
 .rest-overlay-time{font-family:'Bebas Neue',sans-serif;font-size:72px;color:var(--accent);line-height:1;letter-spacing:2px;}
 .rest-overlay-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);}
 .rest-overlay-bar{width:100%;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
@@ -1929,8 +1930,10 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.2.0';
+const APP_VERSION = '4.2.2';
 // Changelog:
+// 4.2.2 — Timer full screen con nombre y próximo ejercicio
+// 4.2.1 — Timer bloquea serie siguiente, overlay full screen, swipe bloqueado
 // 4.2.0 — Vista única carrusel, timer bloquea siguiente, skip parcial
 // 4.1.6 — Series secuenciales, timer overlay carrusel, fix swipe click
 // 4.1.5 — Fix overlay skip, swipe carrusel, labels, cancelar sesión
@@ -3455,10 +3458,12 @@ function renderCarousel(di) {
     <div class="carousel-progress"><div class="carousel-progress-fill" id="carouselFill" style="width:${pct}%"></div></div>
     <div class="carousel-wrap" style="position:relative;">
       <div class="rest-overlay" id="restOverlayCarousel">
+        <div class="rest-overlay-exname" id="restOverlayExName"></div>
         <div class="rest-overlay-label">Descanso</div>
         <div class="rest-overlay-time" id="restOverlayTime">60</div>
-        <div class="rest-overlay-bar"><div class="rest-overlay-fill" id="restOverlayFill" style="width:100%"></div></div>
-        <button class="btn-g" onclick="skipRest()" style="margin-top:4px;padding:10px 32px;font-size:14px;">Saltar →</button>
+        <div class="rest-overlay-bar" style="width:180px;"><div class="rest-overlay-fill" id="restOverlayFill" style="width:100%"></div></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="restOverlayNext"></div>
+        <button class="btn-p" onclick="skipRest()" style="margin-top:16px;padding:14px 48px;font-size:16px;border-radius:var(--radius);">Saltar descanso →</button>
       </div>
       <div class="carousel-track" id="carouselTrack" style="transform:translateX(-${carouselIdx * 100}%)">
         ${slides}
@@ -3516,6 +3521,11 @@ function initCarouselSwipe() {
     if (!dragging) return;
     dragging = false;
     track.style.transition = 'transform .35s cubic-bezier(.4,0,.2,1)';
+    // Block swipe if rest timer is active
+    if (restInterval) {
+      track.style.transform = `translateX(-${carouselIdx * 100}%)`;
+      diffX = 0; wasSwiping = false; return;
+    }
     if (wasSwiping && Math.abs(diffX) > 60) {
       // Block any click that fires after swipe
       const blocker = (ev) => { ev.stopPropagation(); ev.preventDefault(); wrap.removeEventListener('click', blocker, true); };
@@ -3531,6 +3541,8 @@ function initCarouselSwipe() {
 }
 
 function carouselGo(dir) {
+  // Block manual navigation during rest (allow programmatic calls with dir=0)
+  if (dir !== 0 && restInterval) return;
   const newIdx = carouselIdx + dir;
   if (newIdx < 0 || newIdx >= carouselTotal) return;
   carouselIdx = newIdx;
@@ -3675,9 +3687,7 @@ function selectRpeSheet(val) {
   rpeSheetEi = null;
   rpeSheetCallback = null;
   if (cb) cb(val);
-  // Start rest timer and lock next exercise's first serie
-  const rc = db.restCfg.get();
-  startRest(rc.exercise || 90, 'exercise', completedEi);
+  // startRest is called inside the callback after carouselGo (see toggleSerie)
 }
 
 // ─── TIMED SERIES ─────────────────────────────────────────────────────────────
@@ -3933,20 +3943,22 @@ function toggleSerie(ei, si, totalSeries) {
         if (curBody) curBody.classList.remove('open');
         if (curChev) curChev.classList.remove('open');
 
-        // Carousel: advance to next slide
+        // Carousel: advance to next slide, then start rest timer
+        const rcEx = db.restCfg.get();
         setTimeout(() => {
           if (carouselIdx < carouselTotal - 1) {
             carouselIdx++;
             carouselGo(0);
           }
+          // Start rest AFTER carousel moved — so lock applies to now-visible slide
+          startRest(rcEx.exercise || 90, 'exercise', ei);
         }, 200);
       });
-      // Rest timer starts AFTER RPE sheet closes (handled inside selectRpeSheet)
-      // Don't start it here to avoid showing during RPE selection
+      // Note: rest timer started inside setTimeout above, after carousel advances
     } else {
-      // Mid-exercise: rest between series
+      // Mid-exercise: rest between series — lock next serie
       const rc = db.restCfg.get();
-      startRest(rc.series || 60);
+      startRest(rc.series || 60, 'series', ei, si);
     }
   } else {
     // Unmarking a serie → stop rest timer immediately
@@ -3963,7 +3975,7 @@ let workoutStartTime = null;
 let currentRestType = null;
 let currentRestEi = undefined;
 
-function startRest(seconds, type, completedEi) {
+function startRest(seconds, type, completedEi, completedSi) {
   stopRest();
   restTotal = seconds;
   restRemaining = seconds;
@@ -3971,20 +3983,62 @@ function startRest(seconds, type, completedEi) {
   currentRestType = type || 'series';
   currentRestEi = completedEi;
 
-  // For exercise rest: lock next exercise's first serie until timer ends/skipped
-  if (type === 'exercise' && completedEi !== undefined) {
-    const nextFirstRow = document.getElementById(`sr${completedEi + 1}_0`);
-    if (nextFirstRow) nextFirstRow.classList.add('locked');
+  // Lock the next serie or next exercise's first serie during rest
+  if (type === 'series' && completedEi !== undefined && completedSi !== undefined) {
+    // Lock next serie in same exercise
+    const nextSi = completedSi + 1;
+    const nextRow = document.getElementById(`sr${completedEi}_${nextSi}`);
+    if (nextRow && !nextRow.classList.contains('done-row')) {
+      nextRow.setAttribute('data-rest-locked', '1');
+      nextRow.classList.add('locked');
+    }
+  } else if (type === 'exercise') {
+    // Lock first serie of all not-yet-done exercises (the next one)
+    const routine = db.routine.get();
+    const day = routine?.days?.[currentDayIdx];
+    if (day) {
+      day.exercises.forEach((ex, xei) => {
+        const row0 = document.getElementById(`sr${xei}_0`);
+        const check0 = document.getElementById(`sc${xei}_0`);
+        if (row0 && check0 && !check0.classList.contains('done') && xei !== completedEi) {
+          row0.setAttribute('data-rest-locked', '1');
+          row0.classList.add('locked');
+        }
+      });
+    }
   }
 
   if (workoutView === 'carousel') {
-    // Carousel: show overlay inside the carousel wrap
+    // Show full screen rest overlay
     const overlay = document.getElementById('restOverlayCarousel');
     const time = document.getElementById('restOverlayTime');
     const fill = document.getElementById('restOverlayFill');
-    if (overlay) { overlay.classList.add('show'); }
+    const exName = document.getElementById('restOverlayExName');
+    const nextLabel = document.getElementById('restOverlayNext');
+    if (overlay) overlay.classList.add('show');
     if (time) time.textContent = seconds;
     if (fill) fill.style.width = '100%';
+    // Show current exercise name
+    if (exName) {
+      const routine = db.routine.get();
+      const ex = routine?.days?.[currentDayIdx]?.exercises?.[completedEi];
+      exName.textContent = ex?.name || '';
+    }
+    // Show what's next
+    if (nextLabel) {
+      if (type === 'series' && completedSi !== undefined) {
+        const routine = db.routine.get();
+        const ex = routine?.days?.[currentDayIdx]?.exercises?.[completedEi];
+        const totalSeries = ex?.series || 0;
+        nextLabel.textContent = `Serie ${completedSi + 2} de ${totalSeries}`;
+      } else if (type === 'exercise') {
+        const routine = db.routine.get();
+        const nextEx = routine?.days?.[currentDayIdx]?.exercises?.[completedEi + 1];
+        nextLabel.textContent = nextEx ? `Siguiente: ${nextEx.name}` : '';
+      } else {
+        nextLabel.textContent = '';
+      }
+    }
   } else {
     const bar = document.getElementById('restBar');
     const fill = document.getElementById('restFill');
@@ -4015,12 +4069,11 @@ function startRest(seconds, type, completedEi) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       playBeep(660, 0.15);
       setTimeout(() => playBeep(880, 0.25), 200);
-      // Unlock first serie of next exercise after exercise rest
-      if (type === 'exercise' && completedEi !== undefined) {
-        const nextEi = completedEi + 1;
-        const nextFirstRow = document.getElementById(`sr${nextEi}_0`);
-        if (nextFirstRow) nextFirstRow.classList.remove('locked');
-      }
+      // Unlock all rest-locked rows
+      document.querySelectorAll('[data-rest-locked="1"]').forEach(row => {
+        row.classList.remove('locked');
+        row.removeAttribute('data-rest-locked');
+      });
     }
   }, 1000);
 }
@@ -4034,11 +4087,11 @@ function stopRest() {
 }
 
 function skipRest() {
-  // If this was an exercise rest, unlock next exercise's first serie
-  if (currentRestType === 'exercise' && currentRestEi !== undefined) {
-    const nextFirstRow = document.getElementById(`sr${currentRestEi + 1}_0`);
-    if (nextFirstRow) nextFirstRow.classList.remove('locked');
-  }
+  // Unlock all rest-locked rows
+  document.querySelectorAll('[data-rest-locked="1"]').forEach(row => {
+    row.classList.remove('locked');
+    row.removeAttribute('data-rest-locked');
+  });
   stopRest();
 }
 
