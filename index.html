@@ -152,7 +152,10 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .tempo-field label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
 .ex-card{margin:10px 16px 0;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;transition:opacity .2s,border-style .2s,border-color .3s,background .3s;}
 .ex-card.ex-completed{border-color:rgba(212,245,60,.22);background:rgba(212,245,60,.025);}
-.ex-card.skipped{opacity:.4;border-style:dashed}
+.ex-card.skipped{border-color:rgba(255,255,255,.1);border-style:dashed;}
+.ex-card.skipped .ex-body,.ex-card.skipped .ex-actions{position:relative;}
+.ex-skip-overlay{position:absolute;inset:0;background:rgba(10,10,10,.72);z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:0 0 var(--radius) var(--radius);}
+.ex-skip-overlay-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;}
 .ex-header{padding:13px 14px;display:flex;align-items:flex-start;cursor:pointer;transition:background .1s}
 .ex-header:active{background:var(--surface2)}
 .ex-num{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:1px;margin-bottom:2px}
@@ -1920,8 +1923,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.1.2';
+const APP_VERSION = '4.1.3';
 // Changelog:
+// 4.1.3 — Overlay salteado, fix finalizar, labels reps/kg
 // 4.1.2 — Finalizar sesión, autoguardado, calentamiento en carrusel
 // 4.1.1 — Vista carrusel en workout (toggle ≡/▷)
 // 4.1.0 — Suplementos: múltiples tomas, historial, base de info 💡
@@ -3398,7 +3402,7 @@ function renderCarousel(di) {
         <div class="serie-num">${si+1}</div>
         <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
         <div class="serie-sep">reps</div>
-        ${ex.kg?`<input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="kg" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
+        ${ex.kg?`<input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
         <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
       </div>`;
     }).join('');
@@ -3412,7 +3416,13 @@ function renderCarousel(di) {
         ${!exSessions.length && ex.kg ? `<div style="font-size:12px;color:var(--muted);padding:4px 0 6px;">Primera vez · ingresá el peso con el que arrancás 💪</div>` : ''}
       </div>
       <div id="rpeBadge${ei}"></div>
-      <div id="serieRows${ei}">${seriesHtml}</div>
+      ${ex.kg ? `<div style="display:flex;align-items:center;gap:8px;padding:4px 0 2px;">
+      <div style="width:20px;flex-shrink:0;"></div>
+      <div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Reps</div>
+      <div style="width:12px;flex-shrink:0;"></div>
+      <div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Kg</div>
+    </div>` : ''}
+    <div id="serieRows${ei}">${seriesHtml}</div>
       <div class="ex-actions" style="margin-top:8px;">
         <button class="btn-g" onclick="openInfo(${ei},'${ex.name.replace(/'/g,"\'")}')">💡</button>
         <button class="btn-g" onclick="skipEx(${ei})" id="skipBtn${ei}">⏭ Saltear</button>
@@ -3600,6 +3610,12 @@ function renderExList(di) {
       <div class="ex-body${isFirst?' open':''}" id="exBody${ei}">
         ${buildSparkline(exSessions, ei)}
         ${!exSessions.length && ex.kg ? `<div style="font-size:12px;color:var(--muted);padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:4px;">Primera vez · ingresá el peso con el que arrancás 💪</div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;padding:4px 0 2px;">
+          <div style="width:20px;flex-shrink:0;"></div>
+          <div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Reps</div>
+          <div style="width:12px;flex-shrink:0;"></div>
+          ${ex.kg?`<div style="width:70px;text-align:center;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);flex-shrink:0;">Kg</div>`:''}
+        </div>
         <div id="serieRows${ei}">
           ${Array.from({length:ex.series},(_,si)=>{
             // Use per-series last kg if available, fallback to maxKg
@@ -3619,7 +3635,7 @@ function renderExList(di) {
               <div class="serie-num">${si+1}</div>
               <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
               <div class="serie-sep">reps</div>
-              ${ex.kg?`<input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="kg" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
+              ${ex.kg?`<input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="0" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
               <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
             </div>`;
           }).join('')}
@@ -4039,6 +4055,32 @@ function skipEx(ei) {
   const btn = document.getElementById(`skipBtn${ei}`);
   btn.textContent = isSkipped ? '↩ Incluir' : '⏭ Saltear';
   btn.classList.toggle('danger', isSkipped);
+
+  if (isSkipped) {
+    // Add overlay to ex-body and ex-actions to block interaction
+    const exBody = document.getElementById(`exBody${ei}`);
+    if (exBody && !document.getElementById(`skipOverlay${ei}`)) {
+      const overlay = document.createElement('div');
+      overlay.className = 'ex-skip-overlay';
+      overlay.id = `skipOverlay${ei}`;
+      overlay.innerHTML = `<div style="font-size:24px;">⏭</div><div class="ex-skip-overlay-label">Ejercicio salteado</div><button class="btn-g" style="margin-top:4px;font-size:12px;" onclick="skipEx(${ei})">↩ Incluir</button>`;
+      exBody.style.position = 'relative';
+      exBody.appendChild(overlay);
+      // Open body so overlay is visible
+      exBody.classList.add('open');
+      document.getElementById(`exChev${ei}`)?.classList.add('open');
+    }
+    // Carousel: advance to next slide automatically
+    if (workoutView === 'carousel') {
+      setTimeout(() => {
+        if (carouselIdx < carouselTotal - 1) { carouselIdx++; carouselGo(0); }
+      }, 400);
+    }
+  } else {
+    // Remove overlay
+    const overlay = document.getElementById(`skipOverlay${ei}`);
+    overlay?.remove();
+  }
 }
 
 function hideEx(ei) {
@@ -4101,18 +4143,37 @@ function renderBadge(badge) {
 }
 
 function finishSession() {
-  // Confirm if very few series done
   const routine = db.routine.get();
   const day = routine?.days?.[currentDayIdx];
   if (!day) return;
+
   let doneSeries = 0;
+  let totalSeries = 0;
+  let skippedEx = 0;
+
   day.exercises.forEach((ex, ei) => {
+    const card = document.getElementById(`exCard${ei}`);
+    const isSkipped = card?.classList.contains('skipped');
+    if (isSkipped) { skippedEx++; return; }
     for (let si = 0; si < ex.series; si++) {
+      totalSeries++;
       if (document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')) doneSeries++;
     }
   });
-  if (doneSeries === 0) {
+
+  const pending = totalSeries - doneSeries;
+
+  if (doneSeries === 0 && totalSeries > 0) {
     if (!confirm('No completaste ninguna serie. ¿Finalizar de todas formas?')) return;
+  } else if (pending > 0) {
+    const exPending = day.exercises.filter((ex,ei) => {
+      const card = document.getElementById(`exCard${ei}`);
+      if (card?.classList.contains('skipped')) return false;
+      return Array.from({length:ex.series},(_,si)=>document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')).some(d=>!d);
+    }).map(ex=>ex.name);
+    if (!confirm(`Todavía tenés ${pending} serie${pending!==1?'s':''} pendiente${pending!==1?'s':''}.
+
+¿Finalizar de todas formas?`)) return;
   }
   saveSession();
 }
