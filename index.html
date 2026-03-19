@@ -343,6 +343,24 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .rest-skip{background:none;border:1px solid var(--accent-border);border-radius:100px;color:var(--accent);font-size:12px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .routine-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .routine-pill.active{border-color:var(--accent);background:rgba(212,245,60,.1);color:var(--accent);font-weight:600;}
+.carousel-wrap{position:relative;overflow:hidden;width:100%;}
+.carousel-track{display:flex;transition:transform .35s cubic-bezier(.4,0,.2,1);will-change:transform;}
+.carousel-slide{min-width:100%;box-sizing:border-box;padding:0 16px;}
+.carousel-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface);border-top:1px solid var(--border);}
+.carousel-dots{display:flex;gap:6px;align-items:center;}
+.carousel-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:all .2s;}
+.carousel-dot.active{background:var(--accent);width:18px;border-radius:4px;}
+.carousel-prev,.carousel-next{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all .15s;color:var(--text);}
+.carousel-prev:active,.carousel-next:active{background:var(--surface);transform:scale(.95);}
+.carousel-prev.disabled,.carousel-next.disabled{opacity:.3;pointer-events:none;}
+.carousel-progress{height:3px;background:var(--surface2);margin:0 16px 0;}
+.carousel-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .35s;}
+.carousel-ex-header{padding:12px 0 8px;}
+.carousel-ex-num{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:2px;}
+.carousel-ex-name{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.5px;line-height:1.1;}
+.view-toggle{display:flex;gap:4px;background:var(--surface2);border-radius:var(--radius-sm);padding:3px;}
+.view-toggle-btn{padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;border:none;background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;transition:all .15s;}
+.view-toggle-btn.active{background:var(--surface);color:var(--text);font-weight:600;}
 .supp-info-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5;}
 .supp-info-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;flex-shrink:0;width:72px;padding-top:1px;}
 .weight-entry{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);}
@@ -492,6 +510,10 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <div class="w-day-name" id="wName">ENTRENAMIENTO</div>
       <div id="wContext" style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:300;"></div>
     </div>
+    <div class="view-toggle" style="margin-right:6px;">
+      <button class="view-toggle-btn active" id="viewBtnList" onclick="setWorkoutView('list')">≡</button>
+      <button class="view-toggle-btn" id="viewBtnCarousel" onclick="setWorkoutView('carousel')">▷</button>
+    </div>
     <button class="btn-g" onclick="openEditDay(currentDayIdx)">✏️</button>
   </div>
   <div id="exList"></div>
@@ -591,6 +613,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   <div class="sec-label">Suplementos</div>
   <div class="card">
     <div class="list-row" onclick="navTo('supplements')"><div style="font-size:14px;">💊 Gestionar suplementos</div><div style="color:var(--muted)">›</div></div>
+    <div class="list-row" onclick="navTo('supp-history')"><div style="font-size:14px;">📊 Historial de suplementos</div><div style="color:var(--muted)">›</div></div>
   </div>
   <div class="sec-label">Mi perfil</div>
   <div class="card">
@@ -598,7 +621,6 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   </div>
   <div class="sec-label">Configuración</div>
   <div class="card">
-    <div class="list-row" onclick="navTo('supp-history')"><div style="font-size:14px;">📊 Historial de suplementos</div><div style="color:var(--muted)">›</div></div>
     <div class="list-row" onclick="navTo('settings')"><div style="font-size:14px;">⚙️ Ajustes</div><div style="color:var(--muted)">›</div></div>
   </div>
 </div>
@@ -1901,8 +1923,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.1.0';
+const APP_VERSION = '4.1.1';
 // Changelog:
+// 4.1.1 — Vista carrusel en workout (toggle ≡/▷)
 // 4.1.0 — Suplementos: múltiples tomas, historial, base de info 💡
 // 4.0.1 — Racha tolera 1 día descanso, quitar ocultar del workout
 // 4.0.0 — Rutinas múltiples (crear, cambiar, eliminar)
@@ -3260,6 +3283,11 @@ function confirmLeaveWorkout() {
 
 function startWorkout(di) {
   workoutStartTime = Date.now(); // track session duration
+  // Load saved view preference
+  workoutView = localStorage.getItem('gt_workout_view') || 'list';
+  carouselIdx = 0;
+  document.getElementById('viewBtnList')?.classList.toggle('active', workoutView==='list');
+  document.getElementById('viewBtnCarousel')?.classList.toggle('active', workoutView==='carousel');
   // Reset RPE for new workout
   Object.keys(currentRpe).forEach(k => delete currentRpe[k]);
   const routine = db.routine.get();
@@ -3290,6 +3318,139 @@ function startWorkout(di) {
 
 // RPE values stored per exercise during workout
 const currentRpe = {};
+
+// ─── WORKOUT VIEW MODE ───────────────────────────────────────────────────────
+let workoutView = 'list'; // 'list' | 'carousel'
+let carouselIdx = 0;
+let carouselTotal = 0;
+
+function setWorkoutView(mode) {
+  workoutView = mode;
+  localStorage.setItem('gt_workout_view', mode);
+  document.getElementById('viewBtnList').classList.toggle('active', mode === 'list');
+  document.getElementById('viewBtnCarousel').classList.toggle('active', mode === 'carousel');
+  renderExList(currentDayIdx);
+}
+
+function renderCarousel(di) {
+  const routine = db.routine.get();
+  const day = routine?.days?.[di];
+  if (!day) return;
+  const sessions = db.sessions.get().filter(s=>s.dayIdx===di);
+  const hidden = db.hidden.get();
+
+  const exercises = day.exercises.map((ex, ei) => ({ex, ei}))
+    .filter(({ei}) => !hidden[`${di}_${ei}`]);
+
+  carouselTotal = exercises.length;
+  if (carouselIdx >= carouselTotal) carouselIdx = 0;
+
+  const container = document.getElementById('exList');
+
+  // Build all slides
+  const slides = exercises.map(({ex, ei}) => {
+    const exSessions = sessions.map(s=>s.exercises?.[ei]).filter(Boolean);
+    const badge = getExBadge(exSessions);
+    const lastKg = badge?.lastKg || null;
+    const lastSess = exSessions[exSessions.length-1];
+
+    // Series rows
+    let seriesHtml = Array.from({length:ex.series},(_,si)=>{
+      const perSerieKg = lastSess?.series?.[si]?.kg || lastKg || null;
+      const perSerieReps = lastSess?.series?.[si]?.reps || ex.reps;
+      const hasKg = perSerieKg && perSerieKg > 0;
+      if (ex.timed) {
+        return `<div class="serie-row" id="sr${ei}_${si}">
+          <div class="serie-num">${si+1}</div>
+          <div style="flex:1;font-size:13px;color:var(--muted);">${perSerieReps}s</div>
+          <button class="btn-g" id="timedBtn${ei}_${si}" onclick="startTimedSerie(${ei},${si},${perSerieReps},${ex.series})" style="flex:1;justify-content:center;">▶ Iniciar</button>
+          <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
+        </div>`;
+      }
+      return `<div class="serie-row" id="sr${ei}_${si}">
+        <div class="serie-num">${si+1}</div>
+        <input class="serie-input filled" type="number" inputmode="decimal" id="r${ei}_${si}" value="${perSerieReps}" min="0" oninput="this.classList.toggle('filled',!!this.value)">
+        <div class="serie-sep">reps</div>
+        ${ex.kg?`<input class="serie-input${hasKg?' filled':''}" type="number" inputmode="decimal" id="k${ei}_${si}" placeholder="kg" value="${perSerieKg||''}" min="0" oninput="this.classList.toggle('filled',!!this.value)">`:``}
+        <div class="serie-check" id="sc${ei}_${si}" onclick="toggleSerie(${ei},${si},${ex.series})">○</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="carousel-slide">
+      <div class="carousel-ex-header">
+        <div class="carousel-ex-num">EJERCICIO ${ei+1} DE ${day.exercises.length}</div>
+        <div class="carousel-ex-name" id="exCard${ei}">${ex.name}</div>
+        ${badge?`<div style="margin-top:4px;">${renderBadge(badge)} ${lastKg?`<span style="font-size:11px;color:var(--muted);margin-left:4px;">últ. ${lastKg}kg</span>`:''}</div>`:''}
+        ${buildSparkline(exSessions, ei)}
+        ${!exSessions.length && ex.kg ? `<div style="font-size:12px;color:var(--muted);padding:4px 0 6px;">Primera vez · ingresá el peso con el que arrancás 💪</div>` : ''}
+      </div>
+      <div id="rpeBadge${ei}"></div>
+      <div id="serieRows${ei}">${seriesHtml}</div>
+      <div class="ex-actions" style="margin-top:8px;">
+        <button class="btn-g" onclick="openInfo(${ei},'${ex.name.replace(/'/g,"\'")}')">💡</button>
+        <button class="btn-g" onclick="skipEx(${ei})" id="skipBtn${ei}">⏭ Saltear</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Progress bar pct
+  const pct = carouselTotal > 0 ? Math.round((carouselIdx / carouselTotal) * 100) : 0;
+
+  container.innerHTML = `
+    <div class="carousel-progress"><div class="carousel-progress-fill" id="carouselFill" style="width:${pct}%"></div></div>
+    <div class="carousel-wrap">
+      <div class="carousel-track" id="carouselTrack" style="transform:translateX(-${carouselIdx * 100}%)">
+        ${slides}
+      </div>
+    </div>
+    <div class="carousel-nav">
+      <button class="carousel-prev${carouselIdx===0?' disabled':''}" onclick="carouselGo(-1)">‹</button>
+      <div class="carousel-dots">
+        ${exercises.map((_,i)=>`<div class="carousel-dot${i===carouselIdx?' active':''}"></div>`).join('')}
+      </div>
+      <button class="carousel-next${carouselIdx===carouselTotal-1?' disabled':''}" onclick="carouselGo(1)">›</button>
+    </div>
+    <div style="padding:0 16px 8px;">
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:4px;">${carouselIdx+1} / ${carouselTotal}</div>
+    </div>`;
+
+  // Attach swipe handlers
+  exercises.forEach(({ex, ei}) => {
+    Array.from({length:ex.series},(_,si) => initSerieSwipe(ei, si, ex.series));
+  });
+}
+
+function carouselGo(dir) {
+  const newIdx = carouselIdx + dir;
+  if (newIdx < 0 || newIdx >= carouselTotal) return;
+  carouselIdx = newIdx;
+  const track = document.getElementById('carouselTrack');
+  if (track) track.style.transform = `translateX(-${carouselIdx * 100}%)`;
+  // Update dots
+  document.querySelectorAll('.carousel-dot').forEach((d,i) => d.classList.toggle('active', i===carouselIdx));
+  // Update nav buttons
+  document.querySelector('.carousel-prev')?.classList.toggle('disabled', carouselIdx===0);
+  document.querySelector('.carousel-next')?.classList.toggle('disabled', carouselIdx===carouselTotal-1);
+  // Update counter
+  const counter = document.querySelector('.carousel-nav + div div');
+  if (counter) counter.textContent = `${carouselIdx+1} / ${carouselTotal}`;
+  // Update progress
+  const fill = document.getElementById('carouselFill');
+  if (fill) fill.style.width = `${Math.round((carouselIdx/carouselTotal)*100)}%`;
+}
+
+function carouselGoToEx(ei) {
+  // Find slide index for exercise ei
+  const routine = db.routine.get();
+  const day = routine?.days?.[currentDayIdx];
+  const hidden = db.hidden.get();
+  const exercises = day?.exercises?.map((_,i)=>i).filter(i=>!hidden[`${currentDayIdx}_${i}`]) || [];
+  const slideIdx = exercises.indexOf(ei);
+  if (slideIdx >= 0) {
+    carouselIdx = slideIdx;
+    carouselGo(0);
+  }
+}
 
 function setRpe(ei, val) {
   currentRpe[ei] = val;
@@ -3363,6 +3524,7 @@ function buildSparkline(exSessions, ei) {
 }
 
 function renderExList(di) {
+  if (workoutView === 'carousel') { renderCarousel(di); return; }
   const routine = db.routine.get();
   const day = routine.days[di];
   const hidden = db.hidden.get();
