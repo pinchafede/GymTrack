@@ -522,10 +522,6 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <div class="w-day-name" id="wName">ENTRENAMIENTO</div>
       <div id="wContext" style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:300;"></div>
     </div>
-    <div class="view-toggle" style="margin-right:6px;">
-      <button class="view-toggle-btn active" id="viewBtnList" onclick="setWorkoutView('list')">≡</button>
-      <button class="view-toggle-btn" id="viewBtnCarousel" onclick="setWorkoutView('carousel')">▷</button>
-    </div>
     <button class="btn-g" onclick="openEditDay(currentDayIdx)">✏️</button>
   </div>
   <div id="exList"></div>
@@ -1933,8 +1929,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.1.6';
+const APP_VERSION = '4.2.0';
 // Changelog:
+// 4.2.0 — Vista única carrusel, timer bloquea siguiente, skip parcial
 // 4.1.6 — Series secuenciales, timer overlay carrusel, fix swipe click
 // 4.1.5 — Fix overlay skip, swipe carrusel, labels, cancelar sesión
 // 4.1.4 — Fix overlay salteado, fix finalizar, labels REPS/PESO/kg, cancelar sesión
@@ -3316,11 +3313,7 @@ function confirmLeaveWorkout() {
 
 function startWorkout(di) {
   workoutStartTime = Date.now(); // track session duration
-  // Load saved view preference
-  workoutView = localStorage.getItem('gt_workout_view') || 'list';
   carouselIdx = 0;
-  document.getElementById('viewBtnList')?.classList.toggle('active', workoutView==='list');
-  document.getElementById('viewBtnCarousel')?.classList.toggle('active', workoutView==='carousel');
   // Reset RPE for new workout
   Object.keys(currentRpe).forEach(k => delete currentRpe[k]);
   const routine = db.routine.get();
@@ -3353,17 +3346,11 @@ function startWorkout(di) {
 const currentRpe = {};
 
 // ─── WORKOUT VIEW MODE ───────────────────────────────────────────────────────
-let workoutView = 'list'; // 'list' | 'carousel'
+const workoutView = 'carousel'; // fixed — carousel only
 let carouselIdx = 0;
 let carouselTotal = 0;
 
-function setWorkoutView(mode) {
-  workoutView = mode;
-  localStorage.setItem('gt_workout_view', mode);
-  document.getElementById('viewBtnList').classList.toggle('active', mode === 'list');
-  document.getElementById('viewBtnCarousel').classList.toggle('active', mode === 'carousel');
-  renderExList(currentDayIdx);
-}
+
 
 function renderCarousel(di) {
   const routine = db.routine.get();
@@ -3647,7 +3634,7 @@ function buildSparkline(exSessions, ei) {
 }
 
 function renderExList(di) {
-  if (workoutView === 'carousel') { renderCarousel(di); return; }
+  renderCarousel(di);
   const routine = db.routine.get();
   const day = routine.days[di];
   const hidden = db.hidden.get();
@@ -3810,13 +3797,13 @@ function selectRpeSheet(val) {
     setRpe(rpeSheetEi, val);
   }
   const cb = rpeSheetCallback;
-  const savedEi = rpeSheetEi;
+  const completedEi = rpeSheetEi;
   rpeSheetEi = null;
   rpeSheetCallback = null;
   if (cb) cb(val);
-  // Start rest timer AFTER sheet closes and callback runs
+  // Start rest timer and lock next exercise's first serie
   const rc = db.restCfg.get();
-  startRest(rc.exercise || 90);
+  startRest(rc.exercise || 90, 'exercise', completedEi);
 }
 
 // ─── TIMED SERIES ─────────────────────────────────────────────────────────────
@@ -4072,34 +4059,13 @@ function toggleSerie(ei, si, totalSeries) {
         if (curBody) curBody.classList.remove('open');
         if (curChev) curChev.classList.remove('open');
 
-        // Open next exercise
-        if (workoutView === 'carousel') {
-          // Carousel: advance to next slide (skip warm/cool slide 0, go +2)
-          setTimeout(() => {
-            if (carouselIdx < carouselTotal - 1) {
-              carouselIdx++;
-              carouselGo(0);
-            }
-          }, 200);
-        } else {
-          const nextEi = ei + 1;
-          const nextCard = document.getElementById(`exCard${nextEi}`);
-          if (nextCard) {
-            setTimeout(() => {
-              const nextBody = document.getElementById(`exBody${nextEi}`);
-              const nextChev = document.getElementById(`exChev${nextEi}`);
-              if (nextBody) nextBody.classList.add('open');
-              if (nextChev) nextChev.classList.add('open');
-              const screen = document.getElementById('s-workout');
-              const headerEl = screen?.querySelector('.workout-header');
-              const headerH = headerEl ? headerEl.offsetHeight : 80;
-              const cardTop = nextCard.getBoundingClientRect().top;
-              const offset = cardTop - headerH - 12;
-              if (screen) screen.scrollBy({ top: offset, behavior: 'smooth' });
-              else window.scrollBy({ top: offset, behavior: 'smooth' });
-            }, 150);
+        // Carousel: advance to next slide
+        setTimeout(() => {
+          if (carouselIdx < carouselTotal - 1) {
+            carouselIdx++;
+            carouselGo(0);
           }
-        }
+        }, 200);
       });
       // Rest timer starts AFTER RPE sheet closes (handled inside selectRpeSheet)
       // Don't start it here to avoid showing during RPE selection
@@ -4120,12 +4086,22 @@ let restTotal = 60;
 let restRemaining = 60;
 let restStartTime = 0;
 let workoutStartTime = null;
+let currentRestType = null;
+let currentRestEi = undefined;
 
-function startRest(seconds) {
+function startRest(seconds, type, completedEi) {
   stopRest();
   restTotal = seconds;
   restRemaining = seconds;
   restStartTime = Date.now();
+  currentRestType = type || 'series';
+  currentRestEi = completedEi;
+
+  // For exercise rest: lock next exercise's first serie until timer ends/skipped
+  if (type === 'exercise' && completedEi !== undefined) {
+    const nextFirstRow = document.getElementById(`sr${completedEi + 1}_0`);
+    if (nextFirstRow) nextFirstRow.classList.add('locked');
+  }
 
   if (workoutView === 'carousel') {
     // Carousel: show overlay inside the carousel wrap
@@ -4165,6 +4141,12 @@ function startRest(seconds) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       playBeep(660, 0.15);
       setTimeout(() => playBeep(880, 0.25), 200);
+      // Unlock first serie of next exercise after exercise rest
+      if (type === 'exercise' && completedEi !== undefined) {
+        const nextEi = completedEi + 1;
+        const nextFirstRow = document.getElementById(`sr${nextEi}_0`);
+        if (nextFirstRow) nextFirstRow.classList.remove('locked');
+      }
     }
   }, 1000);
 }
@@ -4173,12 +4155,37 @@ function stopRest() {
   if (restInterval) { clearInterval(restInterval); restInterval = null; }
   document.getElementById('restBar')?.classList.remove('show');
   document.getElementById('restOverlayCarousel')?.classList.remove('show');
+  currentRestType = null;
+  currentRestEi = undefined;
 }
 
-function skipRest() { stopRest(); }
+function skipRest() {
+  // If this was an exercise rest, unlock next exercise's first serie
+  if (currentRestType === 'exercise' && currentRestEi !== undefined) {
+    const nextFirstRow = document.getElementById(`sr${currentRestEi + 1}_0`);
+    if (nextFirstRow) nextFirstRow.classList.remove('locked');
+  }
+  stopRest();
+}
 
 function skipEx(ei) {
   const card = document.getElementById(`exCard${ei}`);
+  const alreadySkipped = card.classList.contains('skipped');
+
+  if (!alreadySkipped) {
+    // Check if any series are already done
+    const routine = db.routine.get();
+    const ex = routine?.days?.[currentDayIdx]?.exercises?.[ei];
+    const doneSeries = ex ? Array.from({length:ex.series},(_,si)=>
+      document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')
+    ).filter(Boolean).length : 0;
+
+    if (doneSeries > 0) {
+      if (!confirm(`Completaste ${doneSeries} serie${doneSeries!==1?'s':''} en este ejercicio.
+El progreso parcial se va a registrar. ¿Salteamos de todas formas?`)) return;
+    }
+  }
+
   const isSkipped = card.classList.toggle('skipped');
   const btn = document.getElementById(`skipBtn${ei}`);
 
@@ -4217,13 +4224,6 @@ function skipEx(ei) {
         <div class="ex-skip-overlay-label">Ejercicio salteado</div>
         <button class="btn-p" style="margin-top:10px;padding:10px 28px;font-size:14px;border-radius:var(--radius);" onclick="skipEx(${ei})">↩ Incluir</button>`;
       wrapper.appendChild(overlay);
-    }
-
-    // List view: open the body so overlay is visible
-    if (workoutView === 'list') {
-      const exBody = document.getElementById(`exBody${ei}`);
-      exBody?.classList.add('open');
-      document.getElementById(`exChev${ei}`)?.classList.add('open');
     }
 
     // Carousel: advance to next slide
@@ -4352,7 +4352,21 @@ function saveSession() {
 
   day.exercises.forEach((ex, ei) => {
     const card = document.getElementById(`exCard${ei}`);
-    if (card?.classList.contains('skipped') || document.getElementById(`skipWrapper${ei}`)) { skipped++; return; }
+    const isSkippedEx = card?.classList.contains('skipped') || !!document.getElementById(`skipWrapper${ei}`);
+    if (isSkippedEx) {
+      // Save partial progress if any series were done
+      const series = Array.from({length:ex.series},(_,si)=>{
+        const reps = parseFloat(document.getElementById(`r${ei}_${si}`)?.value)||0;
+        const kg = ex.kg ? parseFloat(document.getElementById(`k${ei}_${si}`)?.value)||0 : null;
+        const done = document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')||false;
+        return {reps, kg, done};
+      });
+      const hasDone = series.some(s=>s.done);
+      if (hasDone) {
+        exercises[ei] = {name:ex.name, reps:ex.reps, kg:ex.kg, series, rpe:null, skipped:true};
+      }
+      skipped++; return;
+    }
     const series = Array.from({length:ex.series},(_,si)=>{
       const reps = parseFloat(document.getElementById(`r${ei}_${si}`)?.value)||0;
       const kg = ex.kg ? parseFloat(document.getElementById(`k${ei}_${si}`)?.value)||0 : null;
