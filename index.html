@@ -132,6 +132,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .day-sub{font-size:11px;color:var(--muted);margin-top:4px;font-weight:300}
 .day-last{font-size:11px;color:var(--accent);margin-top:5px;font-weight:500}
 .day-arrow{color:var(--muted);font-size:22px}
+.sport-today{border-color:var(--orange)!important;}
 .sport-card{margin:0 16px 10px;background:var(--surface);border-radius:var(--radius);border:1px solid #2a2010;padding:16px 18px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
 .sport-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;background:var(--orange)}
 .sport-card:active{transform:scale(.98)}
@@ -1155,12 +1156,23 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Tu posición o rol (opcional)</label>
       <input id="speRol" class="input-f" type="text" placeholder="Ej: Arquero, Base, Delantero..." style="margin-bottom:14px;">
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Intensidad típica</label>
-      <select id="speIntensidad" class="input-f" style="cursor:pointer;margin-bottom:20px;">
+      <select id="speIntensidad" class="input-f" style="cursor:pointer;margin-bottom:14px;">
         <option value="3.5">Baja (caminata, yoga) — 3.5 MET</option>
         <option value="5.0">Moderada (ciclismo, golf) — 5.0 MET</option>
         <option value="6.5" selected>Alta (fútbol, básquet) — 6.5 MET</option>
         <option value="8.0">Muy alta (remo, rugby) — 8.0 MET</option>
         <option value="10.0">Extrema (sprints, box) — 10.0 MET</option>
+      </select>
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Día habitual (opcional)</label>
+      <select id="speDayOfWeek" class="input-f" style="cursor:pointer;margin-bottom:20px;">
+        <option value="">— Sin asignar —</option>
+        <option value="0">Lunes</option>
+        <option value="1">Martes</option>
+        <option value="2">Miércoles</option>
+        <option value="3">Jueves</option>
+        <option value="4">Viernes</option>
+        <option value="5">Sábado</option>
+        <option value="6">Domingo</option>
       </select>
       <button onclick="saveSportEdit()" class="btn-p" style="font-size:18px;">GUARDAR</button>
     </div>
@@ -1994,8 +2006,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.4';
+const APP_VERSION = '4.3.5';
 // Changelog:
+// 4.3.5 — Deporte con día asignado, hero card en home
 // 4.3.4 — Calentamiento toggle, historial calendario
 // 4.3.3 — Barra segmentada, confetti PR, resumen full screen
 // 4.3.2 — Home rediseñado: hero card, greeting, stats animados
@@ -3343,15 +3356,42 @@ function renderHome() {
   if (!sports.length) {
     sportSection.style.display = 'none';
   } else {
+    // Check if any sport is assigned to today
+    const todayDow3 = (now.getDay() + 6) % 7;
+    const todaySport = sports.find(s => s.dayOfWeek !== undefined && s.dayOfWeek === todayDow3);
+
     sportSection.style.display = 'block';
+
+    // If a sport is due today and not yet logged today, show it as hero
+    const todaySportLogged = todaySport && sportLogs.some(l =>
+      l.sportId === todaySport.id && localDateStr(new Date(l.ts)) === localDateStr()
+    );
+
+    // Inject today's sport into the today card area if no gym day is recommended
+    // OR show it as a secondary hero below the gym card
+    const todayCardEl = document.getElementById('homeTodayCard');
+    if (todaySport && !todaySportLogged) {
+      const sportHtml = `<div style="margin-top:10px;background:rgba(245,165,60,.07);border:1px solid rgba(245,165,60,.3);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;animation:fadeInUp .35s .2s ease both;opacity:0;animation-fill-mode:both;">
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--orange);margin-bottom:4px;">HOY · DEPORTE</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1;">${todaySport.emoji||'⚽'} ${todaySport.name}</div>
+          ${todaySport.rol ? `<div style="font-size:12px;color:var(--muted);">${todaySport.rol}</div>` : ''}
+        </div>
+        <button onclick="startSport('${todaySport.id}')" style="background:var(--orange);color:#000;border:none;border-radius:var(--radius-sm);padding:10px 18px;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;cursor:pointer;white-space:nowrap;">REGISTRAR →</button>
+      </div>`;
+      // Append to todayCard area
+      if (todayCardEl) todayCardEl.innerHTML += sportHtml;
+    }
+
     sc.innerHTML = sports.map(sport=>{
       const logs = sportLogs.filter(l=>l.sportId===sport.id);
       const last = logs[logs.length-1];
       const lastStr = last ? `Último: ${new Date(last.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short'})}` : 'Sin actividades aún';
-      return `<div class="sport-card" onclick="startSport('${sport.id}')">
+      const isToday = sport.dayOfWeek !== undefined && sport.dayOfWeek === todayDow3;
+      return `<div class="sport-card${isToday?' sport-today':''}" onclick="startSport('${sport.id}')">
         <div class="day-card-inner">
           <div>
-            <div class="day-tag">${sport.rol || 'Deporte'}</div>
+            <div class="day-tag">${sport.rol || 'Deporte'}${isToday?' · HOY':''}</div>
             <div class="day-name">${sport.emoji||'⚽'} ${sport.name}</div>
             <div class="day-sub">${logs.length} actividad${logs.length!==1?'es':''}</div>
             <div class="day-last" style="color:var(--orange);">${lastStr}</div>
@@ -4966,6 +5006,7 @@ function openSportEdit(id) {
   document.getElementById('speEmoji').value = sport?.emoji || '';
   document.getElementById('speRol').value = sport?.rol || '';
   document.getElementById('speIntensidad').value = sport?.met || '6.5';
+  document.getElementById('speDayOfWeek').value = sport?.dayOfWeek !== undefined ? String(sport.dayOfWeek) : '';
   document.getElementById('sportEditOverlay').classList.add('open');
 }
 
@@ -4973,12 +5014,14 @@ function saveSportEdit() {
   const nombre = document.getElementById('speNombre').value.trim();
   if (!nombre) { toast('Poné un nombre'); return; }
   const sports = db.sports.get();
+  const dowVal = document.getElementById('speDayOfWeek').value;
   const data = {
     id: editingSportId || `sp_${Date.now()}`,
     name: nombre,
     emoji: document.getElementById('speEmoji').value.trim() || '🏃',
     rol: document.getElementById('speRol').value.trim(),
-    met: parseFloat(document.getElementById('speIntensidad').value) || 6.5
+    met: parseFloat(document.getElementById('speIntensidad').value) || 6.5,
+    dayOfWeek: dowVal !== '' ? parseInt(dowVal) : undefined,
   };
   if (editingSportId) {
     const idx = sports.findIndex(s=>s.id===editingSportId);
