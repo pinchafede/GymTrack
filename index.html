@@ -1930,8 +1930,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.2.4';
+const APP_VERSION = '4.2.5';
 // Changelog:
+// 4.2.5 — 9 ejercicios nuevos en biblioteca, 128/128 con info 💡
 // 4.2.4 — Ejercicio extra: toggle por tiempo unificado con editor
 // 4.2.3 — Slide ejercicio extra en carrusel, fix hidden exercises
 // 4.2.2 — Timer full screen con nombre y próximo ejercicio
@@ -2113,6 +2114,15 @@ const EX_LIBRARY = [
   {name:'Abdominales bisagra a una pierna',group:'Core',kg:false},
   {name:'Abdominales en fitball',group:'Core',kg:false},
   {name:'Abdominal en fitball desde puente prono',group:'Core',kg:false},
+  {name:'Remo en polea (agarre cerrado)',group:'Espalda',kg:true},
+  {name:'Pullover con mancuerna',group:'Espalda',kg:true},
+  {name:'Tríceps en polea (agarre prono)',group:'Tríceps',kg:true},
+  {name:'Tríceps tras nuca con mancuerna',group:'Tríceps',kg:true},
+  {name:'Fondos en banco',group:'Tríceps',kg:false},
+  {name:'Curl bíceps en polea',group:'Bíceps',kg:true},
+  {name:'Camilla de cuádriceps',group:'Piernas',kg:true},
+  {name:'Camilla femoral',group:'Piernas',kg:true},
+  {name:'Gemelos de pie con mancuernas',group:'Piernas',kg:true},
   {name:'Nados',group:'Core',kg:false},
   {name:'Rueda abdominal',group:'Core',kg:false},
   // Cardio / Funcional
@@ -2300,6 +2310,15 @@ const EX_INFO = {
   "Mountain climbers":             {p:["Core","Cardio"],s:["Hombros","Flexores de cadera"],desc:"Desde plancha alta, alternás llevando las rodillas al pecho rápidamente.",tips:["Cadera nivelada","Core activo","Ritmo constante"],err:"Elevar las caderas quita el trabajo del core."},
   "Jumping jacks":                 {p:["Cardio","Abductores"],s:["Hombros","Gemelos"],desc:"Saltando, abrís piernas y brazos simultáneamente y volvés a la posición inicial.",tips:["Aterrizá suave","Ritmo constante","Brazos extendidos al subir"],err:"Aterrizaje brusco genera impacto innecesario."},
   "Plancha lateral":               {p:["Oblicuos","Core lateral"],s:["Glúteo medio","Hombros"],desc:"Apoyado en un antebrazo y el lateral del pie, mantenés el cuerpo elevado en línea recta.",tips:["Cadera alta","No rotar el torso","Respiración constante"],err:"Dejar caer la cadera elimina el trabajo de los oblicuos."},
+  "Remo en polea (agarre cerrado)":  {p:["Dorsal ancho","Romboides"],s:["Bíceps","Trapecio medio"],desc:"Sentado en la polea baja con agarre cerrado (palmas enfrentadas), jalá hacia el abdomen manteniendo el torso erecto.",tips:["Retracción escapular al final","Codos pegados al cuerpo","No inclinés el torso para jalar"],err:"Usar el torso como impulso convierte el ejercicio en un remo con espalda."},
+  "Pullover con mancuerna":          {p:["Dorsal ancho","Pecho"],s:["Tríceps","Core"],desc:"Acostado en banco plano, con la mancuerna sobre el pecho, bajá hacia atrás de la cabeza con brazos casi extendidos y volvé.",tips:["Codos levemente flexionados","Estiramiento máximo atrás","Controlá la bajada"],err:"Flectar demasiado los codos convierte el ejercicio en un press de tríceps."},
+  "Tríceps en polea (agarre prono)": {p:["Tríceps"],s:["Antebrazo"],desc:"De pie frente a la polea alta, agarre prono (palmas abajo), extendé los antebrazos hacia abajo manteniendo los codos fijos.",tips:["Codos pegados al cuerpo","Extensión completa","Bajada controlada"],err:"Separar los codos activa los hombros y reduce la carga del tríceps."},
+  "Tríceps tras nuca con mancuerna": {p:["Tríceps (cabeza larga)"],s:["Deltoides"],desc:"De pie o sentado, con la mancuerna detrás de la cabeza sostenida con ambas manos, extendé los codos hacia arriba.",tips:["Codos cerca de la cabeza","Rango completo","Core activo"],err:"Abrir los codos hacia afuera reduce el trabajo de la cabeza larga del tríceps."},
+  "Fondos en banco":                 {p:["Tríceps","Pecho inferior"],s:["Deltoides anterior"],desc:"Con las manos apoyadas en el borde de un banco detrás de vos y los pies en el suelo, bajá flexionando los codos y empujá hacia arriba.",tips:["Espalda cerca del banco","Codos hacia atrás, no afuera","Rango completo"],err:"Dejar el cuerpo muy separado del banco genera presión en los hombros."},
+  "Curl bíceps en polea":            {p:["Bíceps"],s:["Braquial","Braquiorradial"],desc:"De pie frente a la polea baja, flexioná los codos llevando el agarre hacia los hombros con tensión constante.",tips:["Codos pegados al cuerpo","Tensión constante a diferencia de mancuernas","Bajada controlada"],err:"Usar el torso para impulsar usa la espalda en lugar del bíceps."},
+  "Camilla de cuádriceps":           {p:["Cuádriceps"],s:["Tibial anterior"],desc:"Sentado en la máquina de extensión (camilla), extendé las rodillas levantando el rodillo hasta que las piernas queden rectas.",tips:["Extensión completa","Contracción máxima arriba","Bajada controlada"],err:"Usar impulso en lugar de contraer el músculo reduce el estímulo."},
+  "Camilla femoral":                 {p:["Isquiotibiales"],s:["Gemelos","Glúteos"],desc:"Boca abajo en la máquina de curl femoral (camilla), flexioná las rodillas llevando el rodillo hacia los glúteos.",tips:["Rango completo","Apretá los isquios al final","Bajada lenta"],err:"Elevar las caderas para completar el rango quita el trabajo del isquiotibial."},
+  "Gemelos de pie con mancuernas":   {p:["Gastrocnemio","Sóleo"],s:["Tibial posterior"],desc:"De pie sosteniendo mancuernas, elevá los talones lo más alto posible contrayendo los gemelos y bajá completamente.",tips:["Rango completo","Subida lenta con contracción máxima","Probá unilateral para mayor estímulo"],err:"Realizar el movimiento rápido pierde la tensión del gemelo."},
   "Rollout con barra":             {p:["Core","Dorsal ancho"],s:["Tríceps","Hombros"],desc:"Arrodillado con la barra en el suelo, rodá hacia adelante hasta casi tocar el suelo y volvé.",tips:["Activá el core antes de arrancar","Bajada lenta","No arquées la espalda"],err:"Perder la tensión lumbar puede lesionar la zona baja."},
   "Bicicleta estática":            {p:["Cuádriceps","Isquiotibiales"],s:["Glúteos","Gemelos"],desc:"Cardio de bajo impacto. Ajustá la resistencia y mantené una cadencia constante.",tips:["Altura del asiento: rodilla levemente flexionada al fondo","Postura erguida","Variá la resistencia para intervalos"],err:"Asiento demasiado bajo genera presión en las rodillas."},
   "Remo ergómetro":                {p:["Espalda","Piernas","Core"],s:["Bíceps","Hombros"],desc:"Cardio de cuerpo completo. Secuencia: piernas → inclinación del torso → brazos.",tips:["Empujá con las piernas primero","Incliná el torso antes de jalar","Regresá en orden inverso"],err:"Jalar con los brazos antes de extender las piernas pierde potencia y carga la espalda."},
