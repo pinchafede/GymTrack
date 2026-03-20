@@ -3581,7 +3581,9 @@ function renderCarousel(di) {
   const routine = db.routine.get();
   const day = routine?.days?.[di];
   if (!day) return;
+  // Use real() for stats/badges, get() for weight preloading (includes seeds)
   const sessions = db.sessions.real().filter(s=>s.dayIdx===di);
+  const allSessionsForWeights = db.sessions.get().filter(s=>s.dayIdx===di);
   const hidden = db.hidden.get();
 
   const exercises = day.exercises.map((ex, ei) => ({ex, ei}))
@@ -3652,10 +3654,11 @@ function renderCarousel(di) {
       </div>`;
     }
     const {ex, ei} = slide;
-    const exSessions = sessions.map(s=>s.exercises?.[ei]).filter(Boolean);
+    const exSessions = sessions.map(s=>s.exercises?.[ei]).filter(Boolean); // for badges/sparklines
+    const allExSessions = allSessionsForWeights.map(s=>s.exercises?.[ei]).filter(Boolean); // for weight preload
     const badge = getExBadge(exSessions);
     const lastKg = badge?.lastKg || null;
-    const lastSess = exSessions[exSessions.length-1];
+    const lastSess = allExSessions[allExSessions.length-1]; // use seed if no real sessions yet
 
     // Series rows
     let seriesHtml = Array.from({length:ex.series},(_,si)=>{
