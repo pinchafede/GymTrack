@@ -2006,8 +2006,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.5';
+const APP_VERSION = '4.3.6';
 // Changelog:
+// 4.3.6 — Hero card: deporte tiene prioridad, gym como secundario
 // 4.3.5 — Deporte con día asignado, hero card en home
 // 4.3.4 — Calentamiento toggle, historial calendario
 // 4.3.3 — Barra segmentada, confetti PR, resumen full screen
@@ -3274,8 +3275,44 @@ function renderHome() {
   // ── Hero card: día recomendado ─────────────────────────────────────────
   const todayCard = document.getElementById('homeTodayCard');
   const otherDaysLabel = document.getElementById('otherDaysLabel');
+
+  // Check sport priority BEFORE building gym hero
+  const todayDow3 = (now.getDay() + 6) % 7;
+  const todaySportHero = sports.find(s => s.dayOfWeek !== undefined && s.dayOfWeek === todayDow3);
+  const todaySportLogged = todaySportHero && sportLogs.some(l =>
+    l.sportId === todaySportHero.id && localDateStr(new Date(l.ts)) === localDateStr()
+  );
+  const sportIsToday = todaySportHero && !todaySportLogged;
+
   if (todayCard) {
-    if (recommendedDi >= 0 && days[recommendedDi]?.exercises?.length) {
+    let html = '';
+
+    if (sportIsToday) {
+      // SPORT HERO — takes priority
+      html += `<div style="background:rgba(245,165,60,.07);border:1px solid rgba(245,165,60,.3);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;animation:fadeInUp .35s .1s ease both;opacity:0;animation-fill-mode:both;">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--orange);border-radius:var(--radius) var(--radius) 0 0;"></div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--orange);margin-bottom:6px;">HOY · DEPORTE</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;line-height:1;margin-bottom:4px;">${todaySportHero.emoji||'⚽'} ${todaySportHero.name.toUpperCase()}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${todaySportHero.rol||''}</div>
+        <button class="today-hero-btn" style="background:var(--orange);" onclick="startSport('${todaySportHero.id}')">REGISTRAR ACTIVIDAD →</button>
+      </div>`;
+
+      // Gym day shown as secondary option below
+      if (recommendedDi >= 0 && days[recommendedDi]?.exercises?.length) {
+        const rDay = days[recommendedDi];
+        const rColor = DAY_COLORS[recommendedDi % 7];
+        html += `<div style="margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;opacity:.7;">
+          <div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">También disponible</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;line-height:1;">${rDay.name.toUpperCase()}</div>
+            <div style="font-size:11px;color:var(--muted);">${rDay.exercises.length} ejercicios</div>
+          </div>
+          <button onclick="startWorkout(${recommendedDi})" style="background:${rColor};color:#000;border:none;border-radius:var(--radius-sm);padding:8px 14px;font-family:'Bebas Neue',sans-serif;font-size:13px;cursor:pointer;white-space:nowrap;">ENTRENAR →</button>
+        </div>`;
+      }
+
+    } else if (recommendedDi >= 0 && days[recommendedDi]?.exercises?.length) {
+      // GYM HERO — normal flow
       const rDay = days[recommendedDi];
       const rSessions = sessions.filter(s=>s.dayIdx===recommendedDi);
       const rLast = rSessions[rSessions.length-1];
@@ -3285,19 +3322,16 @@ function renderHome() {
         const dAgo = Math.round((new Date(localDateStr()) - new Date(localDateStr(new Date(rLast.ts)))) / 86400000);
         rLastStr = dAgo === 0 ? 'Ya entrenado hoy' : dAgo === 1 ? 'Ayer' : `Hace ${dAgo} días`;
       }
-      todayCard.innerHTML = `
-        <div class="today-hero-card" style="border-color:${rColor}33;">
-          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${rColor};border-radius:var(--radius) var(--radius) 0 0;"></div>
-          <div class="today-hero-card .day-tag-big" style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:6px;">HOY 👊 · DÍA ${recommendedDi+1}</div>
-          <div class="today-hero-card .day-name-big" style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;line-height:1;margin-bottom:4px;">${rDay.name.toUpperCase()}</div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${rDay.exercises.length} ejercicios · ${rLastStr}</div>
-          <button class="today-hero-btn" style="background:${rColor};" onclick="startWorkout(${recommendedDi})">ENTRENAR AHORA →</button>
-        </div>`;
-      if (otherDaysLabel) otherDaysLabel.style.display = days.length > 1 ? '' : 'none';
-    } else {
-      todayCard.innerHTML = '';
-      if (otherDaysLabel) otherDaysLabel.style.display = 'none';
+      html += `<div class="today-hero-card" style="border-color:${rColor}33;">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${rColor};border-radius:var(--radius) var(--radius) 0 0;"></div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:${rColor};margin-bottom:6px;">${rDay.name.toUpperCase()}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${rDay.exercises.length} ejercicios · ${rLastStr}</div>
+        <button class="today-hero-btn" style="background:${rColor};" onclick="startWorkout(${recommendedDi})">ENTRENAR AHORA →</button>
+      </div>`;
     }
+
+    todayCard.innerHTML = html;
+    if (otherDaysLabel) otherDaysLabel.style.display = days.length > 1 ? '' : 'none';
   }
 
   const dc = document.getElementById('dayCCards');
@@ -3361,27 +3395,6 @@ function renderHome() {
     const todaySport = sports.find(s => s.dayOfWeek !== undefined && s.dayOfWeek === todayDow3);
 
     sportSection.style.display = 'block';
-
-    // If a sport is due today and not yet logged today, show it as hero
-    const todaySportLogged = todaySport && sportLogs.some(l =>
-      l.sportId === todaySport.id && localDateStr(new Date(l.ts)) === localDateStr()
-    );
-
-    // Inject today's sport into the today card area if no gym day is recommended
-    // OR show it as a secondary hero below the gym card
-    const todayCardEl = document.getElementById('homeTodayCard');
-    if (todaySport && !todaySportLogged) {
-      const sportHtml = `<div style="margin-top:10px;background:rgba(245,165,60,.07);border:1px solid rgba(245,165,60,.3);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;animation:fadeInUp .35s .2s ease both;opacity:0;animation-fill-mode:both;">
-        <div>
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--orange);margin-bottom:4px;">HOY · DEPORTE</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1;">${todaySport.emoji||'⚽'} ${todaySport.name}</div>
-          ${todaySport.rol ? `<div style="font-size:12px;color:var(--muted);">${todaySport.rol}</div>` : ''}
-        </div>
-        <button onclick="startSport('${todaySport.id}')" style="background:var(--orange);color:#000;border:none;border-radius:var(--radius-sm);padding:10px 18px;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;cursor:pointer;white-space:nowrap;">REGISTRAR →</button>
-      </div>`;
-      // Append to todayCard area
-      if (todayCardEl) todayCardEl.innerHTML += sportHtml;
-    }
 
     sc.innerHTML = sports.map(sport=>{
       const logs = sportLogs.filter(l=>l.sportId===sport.id);
