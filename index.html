@@ -1889,6 +1889,7 @@ async function gdriveDownload() {
     if (data.hidden)    db.hidden.set(data.hidden);
     if (data.weightLog) db.weightLog.set(data.weightLog);
     if (data.restCfg)   db.restCfg.set(data.restCfg);
+    if (data.notifCfg)  db.notifCfg.set(data.notifCfg);
 
     toast('✓ Datos restaurados desde Drive');
     renderHome();
@@ -2006,8 +2007,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.6';
+const APP_VERSION = '4.3.7';
 // Changelog:
+// 4.3.7 — Sesiones seed para precargar pesos sin afectar stats
 // 4.3.6 — Hero card: deporte tiene prioridad, gym como secundario
 // 4.3.5 — Deporte con día asignado, hero card en home
 // 4.3.4 — Calentamiento toggle, historial calendario
@@ -2117,7 +2119,11 @@ const db = {
     get:()=>localStorage.getItem('gt_active_routine')||null,
     set:v=>localStorage.setItem('gt_active_routine',v)
   },
-  sessions:   { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sessions')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_sessions',JSON.stringify(v)) },
+  sessions:   {
+    get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sessions')||'[]')}catch{return[]} },
+    set:v=>localStorage.setItem('gt_sessions',JSON.stringify(v)),
+    real:()=>{ try{return JSON.parse(localStorage.getItem('gt_sessions')||'[]').filter(s=>!s.seed)}catch{return[]} }
+  },
   sports:     { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sports')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_sports',JSON.stringify(v)) },
   sportLogs:  { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_sportlogs')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_sportlogs',JSON.stringify(v)) },
   supps:      { get:()=>{ try{return JSON.parse(localStorage.getItem('gt_supps')||'[]')}catch{return[]} }, set:v=>localStorage.setItem('gt_supps',JSON.stringify(v)) },
@@ -3114,7 +3120,7 @@ function selectPredefCustom(name) {
 function renderHome() {
   const profile = db.profile.get();
   const routine = db.routine.get();
-  const sessions = db.sessions.get();
+  const sessions = db.sessions.real();
   const sportLogs = db.sportLogs.get();
   const sports = db.sports.get();
 
@@ -3538,7 +3544,7 @@ function startWorkout(di) {
   if (!routine?.days?.[di]) return;
   currentDayIdx = di;
   const day = routine.days[di];
-  const sessions = db.sessions.get().filter(s=>s.dayIdx===di);
+  const sessions = db.sessions.real().filter(s=>s.dayIdx===di);
   const lastSess = sessions[sessions.length-1];
 
   document.getElementById('wLabel').textContent = `Día ${di+1}`;
@@ -3575,7 +3581,7 @@ function renderCarousel(di) {
   const routine = db.routine.get();
   const day = routine?.days?.[di];
   if (!day) return;
-  const sessions = db.sessions.get().filter(s=>s.dayIdx===di);
+  const sessions = db.sessions.real().filter(s=>s.dayIdx===di);
   const hidden = db.hidden.get();
 
   const exercises = day.exercises.map((ex, ei) => ({ex, ei}))
@@ -5131,7 +5137,7 @@ function saveSport() {
 let statsCharts = {};
 
 function renderStats() {
-  const sessions = db.sessions.get();
+  const sessions = db.sessions.real();
   const sportLogs = db.sportLogs.get();
   const routine = db.routine.get();
   const days = routine?.days || [];
@@ -5317,7 +5323,7 @@ function setEvEx(ei) {
   evExIdx = ei;
   document.querySelectorAll('[id^="evExPill"]').forEach(p=>p.classList.remove('active'));
   document.getElementById(`evExPill${ei}`)?.classList.add('active');
-  const sessions = db.sessions.get().filter(s=>s.dayIdx===evDayIdx);
+  const sessions = db.sessions.real().filter(s=>s.dayIdx===evDayIdx);
   const pts = sessions.map(s=>{
     const ex = s.exercises?.[ei]; if(!ex) return null;
     const done = ex.series?.filter(s=>s.done&&s.kg>0)||[];
@@ -5352,7 +5358,7 @@ function getPRs(sessions) {
 let coachCache = {};
 
 function renderCoach() {
-  const sessions = db.sessions.get();
+  const sessions = db.sessions.real();
   const routine = db.routine.get();
   const days = routine?.days || [];
   const container = document.getElementById('coachContent');
@@ -5660,7 +5666,7 @@ function toggleProgCard(id) {
 }
 
 function analyseEx(dayIdx, exIdx) {
-  const sessions = db.sessions.get().filter(s=>s.dayIdx===dayIdx);
+  const sessions = db.sessions.real().filter(s=>s.dayIdx===dayIdx);
   const pts = sessions.map(s=>{
     const ex = s.exercises?.[exIdx]; if(!ex?.series) return null;
     const done = ex.series.filter(s=>s.done&&s.kg>0);
@@ -5866,7 +5872,7 @@ function setHistView(v) {
 }
 
 function renderHistCal() {
-  const sessions = db.sessions.get();
+  const sessions = db.sessions.real();
   const sportLogs = db.sportLogs.get();
   const routine = db.routine.get();
   const container = document.getElementById('histCal');
@@ -5934,7 +5940,7 @@ function renderHistCal() {
 }
 
 function histCalDayClick(dateKey) {
-  const sessions = db.sessions.get();
+  const sessions = db.sessions.real();
   const sportLogs = db.sportLogs.get();
   const routine = db.routine.get();
   const daySess = sessions.filter(s=>localDateStr(new Date(s.ts))===dateKey);
@@ -5972,7 +5978,7 @@ function histCalDayClick(dateKey) {
 }
 
 function renderHistory() {
-  const sessions = db.sessions.get();
+  const sessions = db.sessions.real();
   const sportLogs = db.sportLogs.get();
   const routine = db.routine.get();
   const container = document.getElementById('histList');
@@ -6096,7 +6102,7 @@ function toggleHist(i) {
 let editingSessionTs = null;
 
 function editSessionByTs(ts) {
-  const sessions = db.sessions.get();
+  const sessions = db.sessions.real();
   const sess = sessions.find(s => s.ts === ts);
   if (!sess) return;
   editingSessionTs = ts;
@@ -6153,7 +6159,7 @@ function editSessionByTs(ts) {
 
 function saveSessionEdit() {
   if (!editingSessionTs) return;
-  const sessions = db.sessions.get();
+  const sessions = db.sessions.real();
   const idx = sessions.findIndex(s => s.ts === editingSessionTs);
   if (idx < 0) return;
 
