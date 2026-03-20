@@ -104,6 +104,18 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .home-hero{padding:52px 20px 16px;background:linear-gradient(180deg,#111 0%,var(--bg) 100%)}
 .home-hero h1{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:2px;line-height:1;color:var(--accent)}
 .home-hero p{color:var(--muted);font-size:13px;margin-top:2px;font-weight:300}
+.home-hero-new{padding:52px 20px 14px;background:linear-gradient(180deg,#131313 0%,var(--bg) 100%);animation:fadeInUp .4s ease both;}
+.home-greeting{font-size:10px;text-transform:uppercase;letter-spacing:3px;color:var(--muted);margin-bottom:2px;}
+.home-username{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:2px;line-height:1;color:var(--accent);}
+.home-subtitle{color:var(--muted);font-size:13px;margin-top:4px;font-weight:300;}
+.today-hero-card{border-radius:var(--radius);padding:20px;background:var(--surface);border:1px solid var(--border);position:relative;overflow:hidden;animation:fadeInUp .35s .1s ease both;opacity:0;animation-fill-mode:both;}
+.today-hero-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);}
+.today-hero-card .day-tag-big{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:6px;}
+.today-hero-card .day-name-big{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;line-height:1;margin-bottom:4px;}
+.today-hero-card .day-meta{font-size:12px;color:var(--muted);margin-bottom:16px;}
+.today-hero-btn{display:block;width:100%;background:var(--accent);color:#000;border:none;border-radius:var(--radius-sm);padding:14px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;cursor:pointer;transition:all .15s;}
+.today-hero-btn:active{transform:scale(.98);}
+@keyframes statCount{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 16px 14px}
 .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 10px;text-align:center}
 .stat-num{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--accent);line-height:1;transition:color .3s}
@@ -501,15 +513,31 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 
 <!-- ═══ HOME ═══ -->
 <div id="s-home" class="screen">
-  <div class="home-hero" onclick="navTo('profile')" style="cursor:pointer;"><h1 id="homeTitle">GYMTRACK</h1><p id="homeSubtitle">Tu rutina de hoy</p></div>
+
+  <!-- Hero: saludo + día recomendado -->
+  <div class="home-hero-new" onclick="navTo('profile')" style="cursor:pointer;">
+    <div class="home-greeting" id="homeGreeting">BUENOS DÍAS</div>
+    <div class="home-username" id="homeTitle">ATLETA</div>
+    <div class="home-subtitle" id="homeSubtitle">Tu rutina de hoy</div>
+  </div>
+
+  <!-- Día recomendado — hero card -->
+  <div id="homeTodayCard" style="margin:0 16px 16px;"></div>
+
+  <!-- Stats row con animación -->
   <div class="stats-row">
     <div class="stat-box"><div class="stat-num" id="hTotal">0</div><div class="stat-lbl">sesiones</div></div>
     <div class="stat-box"><div class="stat-num" id="hWeek">0</div><div class="stat-lbl">esta semana</div><div id="hWeekBreakdown" style="font-size:10px;color:var(--muted);margin-top:2px;"></div></div>
     <div class="stat-box"><div class="stat-num" id="hStreak">0</div><div class="stat-lbl" id="hStreakLbl">racha días</div></div>
   </div>
+
+  <!-- Barra de progreso semanal -->
   <div class="week-dots" id="weekDots"></div>
-  <div class="sec-label">Seleccioná tu día</div>
+
+  <!-- Otros días -->
+  <div class="sec-label" id="otherDaysLabel" style="display:none;">Otros días</div>
   <div id="dayCCards"></div>
+
   <div id="sportSection">
     <div class="sec-label">Deportes</div>
     <div id="sportCards"></div>
@@ -1941,8 +1969,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.1';
+const APP_VERSION = '4.3.2';
 // Changelog:
+// 4.3.2 — Home rediseñado: hero card, greeting, stats animados
 // 4.3.1 — Micro-animaciones: pop check, fade timer, shake finalizar
 // 4.3.0 — Deload, 1RM estimado, compartir rutina
 // 4.2.6 — Notas ejercicio en carrusel, progreso en header, RPE al finalizar
@@ -3054,9 +3083,11 @@ function renderHome() {
   // Dynamic greeting
   const hour = new Date().getHours();
   let greeting;
-  if (hour >= 5 && hour < 12)       greeting = 'Buenos días';
-  else if (hour >= 12 && hour < 19) greeting = 'Buenas tardes';
-  else                               greeting = 'Buenas noches';
+  if (hour >= 5 && hour < 12)       greeting = 'BUENOS DÍAS,';
+  else if (hour >= 12 && hour < 19) greeting = 'BUENAS TARDES,';
+  else                               greeting = 'BUENAS NOCHES,';
+  const greetingEl = document.getElementById('homeGreeting');
+  if (greetingEl) greetingEl.textContent = greeting;
 
   // Context-aware subtitle
   const allActivity = [...sessions.map(s=>s.ts), ...sportLogs.map(s=>s.ts)].sort().reverse();
@@ -3064,7 +3095,6 @@ function renderHome() {
   const todayStr = localDateStr();
   const lastDateStr = lastActivityTs ? localDateStr(new Date(lastActivityTs)) : null;
 
-  // Compare calendar dates, not hours elapsed
   let daysSinceLast = null;
   if (lastDateStr) {
     const today = new Date(todayStr);
@@ -3123,8 +3153,19 @@ function renderHome() {
     }
   }
 
-  document.getElementById('hTotal').textContent = sessions.length + sportLogs.length;
-  document.getElementById('hWeek').textContent = totalThisWeek;
+  // Animated stat counters
+  function animateStat(id, target) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = parseInt(el.textContent) || 0;
+    if (current === target) return;
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = 'statCount .3s ease both';
+    el.textContent = target;
+  }
+  animateStat('hTotal', sessions.length + sportLogs.length);
+  animateStat('hWeek', totalThisWeek);
 
   // Streak with fire emoji if >= 3
   const streakEl = document.getElementById('hStreak');
@@ -3190,12 +3231,44 @@ function renderHome() {
     });
   }
 
+  // ── Hero card: día recomendado ─────────────────────────────────────────
+  const todayCard = document.getElementById('homeTodayCard');
+  const otherDaysLabel = document.getElementById('otherDaysLabel');
+  if (todayCard) {
+    if (recommendedDi >= 0 && days[recommendedDi]?.exercises?.length) {
+      const rDay = days[recommendedDi];
+      const rSessions = sessions.filter(s=>s.dayIdx===recommendedDi);
+      const rLast = rSessions[rSessions.length-1];
+      const rColor = DAY_COLORS[recommendedDi % 7];
+      let rLastStr = 'Primera vez';
+      if (rLast) {
+        const dAgo = Math.round((new Date(localDateStr()) - new Date(localDateStr(new Date(rLast.ts)))) / 86400000);
+        rLastStr = dAgo === 0 ? 'Ya entrenado hoy' : dAgo === 1 ? 'Ayer' : `Hace ${dAgo} días`;
+      }
+      todayCard.innerHTML = `
+        <div class="today-hero-card" style="border-color:${rColor}33;">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${rColor};border-radius:var(--radius) var(--radius) 0 0;"></div>
+          <div class="today-hero-card .day-tag-big" style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:6px;">HOY 👊 · DÍA ${recommendedDi+1}</div>
+          <div class="today-hero-card .day-name-big" style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px;line-height:1;margin-bottom:4px;">${rDay.name.toUpperCase()}</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${rDay.exercises.length} ejercicios · ${rLastStr}</div>
+          <button class="today-hero-btn" style="background:${rColor};" onclick="startWorkout(${recommendedDi})">ENTRENAR AHORA →</button>
+        </div>`;
+      if (otherDaysLabel) otherDaysLabel.style.display = days.length > 1 ? '' : 'none';
+    } else {
+      todayCard.innerHTML = '';
+      if (otherDaysLabel) otherDaysLabel.style.display = 'none';
+    }
+  }
+
   const dc = document.getElementById('dayCCards');
-  dc.innerHTML = days.map((day,di)=>{
+  dc.innerHTML = days.filter((_,di) => di !== recommendedDi || !days[recommendedDi]?.exercises?.length).length === 0 ? '' :
+  days.map((day,di)=>{
+    // Skip recommended day — it's shown in the hero card above
+    if (di === recommendedDi && day.exercises?.length) return '';
     const daySessions = sessions.filter(s=>s.dayIdx===di);
     const last = daySessions[daySessions.length-1];
     const exCount = day.exercises?.length || 0;
-    const isRecommended = di === recommendedDi && exCount > 0;
+    const isRecommended = false; // never highlight in secondary list
 
     // Last session relative time
     let lastStr;
