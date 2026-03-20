@@ -521,7 +521,10 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
     <div style="flex:1;">
       <div class="w-day-label" id="wLabel">Día 1</div>
       <div class="w-day-name" id="wName">ENTRENAMIENTO</div>
-      <div id="wContext" style="font-size:11px;color:var(--muted);margin-top:2px;font-weight:300;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+        <div id="wContext" style="font-size:11px;color:var(--muted);font-weight:300;"></div>
+        <div id="wProgress" style="font-size:11px;color:var(--accent);font-weight:600;"></div>
+      </div>
     </div>
     <button class="btn-g" onclick="openEditDay(currentDayIdx)">✏️</button>
   </div>
@@ -1930,8 +1933,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.2.5';
+const APP_VERSION = '4.2.6';
 // Changelog:
+// 4.2.6 — Notas ejercicio en carrusel, progreso en header, RPE al finalizar
 // 4.2.5 — 9 ejercicios nuevos en biblioteca, 128/128 con info 💡
 // 4.2.4 — Ejercicio extra: toggle por tiempo unificado con editor
 // 4.2.3 — Slide ejercicio extra en carrusel, fix hidden exercises
@@ -3365,6 +3369,7 @@ function startWorkout(di) {
   document.getElementById('wContext').textContent = ctx;
 
   renderExList(di);
+  setTimeout(updateWorkoutProgress, 100);
   navTo('workout');
 }
 
@@ -3487,6 +3492,7 @@ function renderCarousel(di) {
       <div class="carousel-ex-header">
         <div class="carousel-ex-num">EJERCICIO ${ei+1} DE ${day.exercises.length}</div>
         <div class="carousel-ex-name" id="exCard${ei}">${ex.name}</div>
+        ${ex.nota ? `<div style="font-size:12px;color:var(--accent);margin-top:3px;padding:4px 0;border-left:2px solid var(--accent);padding-left:8px;line-height:1.4;">${ex.nota}</div>` : ''}
         ${badge?`<div style="margin-top:4px;">${renderBadge(badge)} ${lastKg?`<span style="font-size:11px;color:var(--muted);margin-left:4px;">últ. ${lastKg}kg</span>`:''}</div>`:''}
         ${buildSparkline(exSessions, ei)}
         ${!exSessions.length && ex.kg ? `<div style="font-size:12px;color:var(--muted);padding:4px 0 6px;">Primera vez · ingresá el peso con el que arrancás 💪</div>` : ''}
@@ -4003,6 +4009,25 @@ function toggleEx(ei) {
 }
 
 // Toggle individual serie as done/undone + launch rest timer
+function updateWorkoutProgress() {
+  const routine = db.routine.get();
+  const day = routine?.days?.[currentDayIdx];
+  if (!day) return;
+  let done = 0, total = 0;
+  day.exercises.forEach((ex, ei) => {
+    const isSkipped = document.getElementById(`exCard${ei}`)?.classList.contains('skipped')
+                   || !!document.getElementById(`skipWrapper${ei}`);
+    if (isSkipped) return;
+    const allDone = Array.from({length:ex.series},(_,si) =>
+      document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')
+    ).every(Boolean);
+    total++;
+    if (allDone) done++;
+  });
+  const el = document.getElementById('wProgress');
+  if (el) el.textContent = total > 0 ? `${done} / ${total}` : '';
+}
+
 function updateSerieLocks(ei, totalSeries) {
   // Lock all series after the first undone one
   let foundUndone = false;
@@ -4032,6 +4057,8 @@ function toggleSerie(ei, si, totalSeries) {
   // Update sequential locks
   updateSerieLocks(ei, totalSeries);
 
+  // Actualizar progreso en header
+  updateWorkoutProgress();
   // Autoguardado silencioso del estado actual
   if (isDone) autoSaveProgress();
 
@@ -4281,6 +4308,7 @@ El progreso parcial se va a registrar. ¿Salteamos de todas formas?`)) return;
       wrapper.appendChild(overlay);
     }
 
+    updateWorkoutProgress();
     // Carousel: advance to next slide
     if (workoutView === 'carousel') {
       setTimeout(() => {
@@ -4394,7 +4422,27 @@ function finishSession() {
 
 ¿Finalizar de todas formas?`)) return;
   }
-  saveSession();
+
+  // Check if we need a global RPE — last completed exercise may not have gotten one
+  const routine2 = db.routine.get();
+  const day2 = routine2?.days?.[currentDayIdx];
+  let lastCompletedEi = -1;
+  day2?.exercises?.forEach((ex, ei) => {
+    const isSkipped = document.getElementById(`exCard${ei}`)?.classList.contains('skipped')
+                   || !!document.getElementById(`skipWrapper${ei}`);
+    if (isSkipped) return;
+    const anyDone = Array.from({length:ex.series},(_,si) =>
+      document.getElementById(`sc${ei}_${si}`)?.classList.contains('done')
+    ).some(Boolean);
+    if (anyDone) lastCompletedEi = ei;
+  });
+
+  // If last completed exercise has no RPE yet, ask for it
+  if (lastCompletedEi >= 0 && currentRpe[lastCompletedEi] === undefined) {
+    showRpeSheet(lastCompletedEi, () => saveSession());
+  } else {
+    saveSession();
+  }
 }
 
 function saveSession() {
