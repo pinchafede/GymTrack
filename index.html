@@ -336,8 +336,13 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .serie-input:focus{outline:none;border-color:var(--accent)}
 .serie-input.filled{border-color:#3f5a00;color:var(--accent)}
 .serie-sep{display:none;}
-.serie-check{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0;margin-left:auto;font-size:16px;-webkit-tap-highlight-color:transparent}
+.serie-check{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0;margin-left:auto;font-size:16px;-webkit-tap-highlight-color:transparent}
 .serie-check.done{background:var(--accent);border-color:var(--accent);color:#000}
+.serie-check.pop{animation:checkPop .3s cubic-bezier(.36,.07,.19,.97) both;}
+@keyframes checkPop{0%{transform:scale(1)}40%{transform:scale(1.4)}70%{transform:scale(.88)}100%{transform:scale(1)}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .last-kg-hint{font-size:11px;color:var(--muted);padding:4px 0 8px;}
 
 /* Rest timer */
@@ -354,14 +359,14 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .carousel-slide{min-width:100%;box-sizing:border-box;padding:0 16px;}
 .carousel-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface);border-top:1px solid var(--border);}
 .carousel-dots{display:flex;gap:6px;align-items:center;}
-.carousel-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:all .2s;}
+.carousel-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:all .3s cubic-bezier(.4,0,.2,1);}
 .carousel-dot.active{background:var(--accent);width:18px;border-radius:4px;}
 .carousel-prev,.carousel-next{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all .15s;color:var(--text);}
 .carousel-prev:active,.carousel-next:active{background:var(--surface);transform:scale(.95);}
 .carousel-prev.disabled,.carousel-next.disabled{opacity:.3;pointer-events:none;}
 .carousel-progress{height:3px;background:var(--surface2);margin:0 16px 0;}
 .rest-overlay{position:fixed;inset:0;background:#0a0a0a;z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;}
-.rest-overlay.show{display:flex;}
+.rest-overlay.show{display:flex;animation:fadeInUp .25s ease both;}
 .rest-overlay-exname{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
 .rest-overlay-time{font-family:'Bebas Neue',sans-serif;font-size:72px;color:var(--accent);line-height:1;letter-spacing:2px;}
 .rest-overlay-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);}
@@ -530,7 +535,7 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
   </div>
   <div id="exList"></div>
   <div class="save-bar-wrap">
-    <button class="btn-p" onclick="finishSession()" style="width:100%;font-size:17px;margin-bottom:8px;">✓ FINALIZAR SESIÓN</button>
+    <button class="btn-p" id="finishBtn" onclick="finishSession()" style="width:100%;font-size:17px;margin-bottom:8px;">✓ FINALIZAR SESIÓN</button>
     <button class="btn-g danger" onclick="cancelSession()" style="width:100%;justify-content:center;font-size:14px;">✕ Cancelar sesión</button>
     <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px;">El progreso se guarda automáticamente</div>
   </div>
@@ -1936,8 +1941,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.0';
+const APP_VERSION = '4.3.1';
 // Changelog:
+// 4.3.1 — Micro-animaciones: pop check, fade timer, shake finalizar
 // 4.3.0 — Deload, 1RM estimado, compartir rutina
 // 4.2.6 — Notas ejercicio en carrusel, progreso en header, RPE al finalizar
 // 4.2.5 — 9 ejercicios nuevos en biblioteca, 128/128 con info 💡
@@ -4081,7 +4087,13 @@ function toggleSerie(ei, si, totalSeries) {
   btn.textContent = isDone ? '✓' : '○';
   row.classList.toggle('done-row', isDone);
 
-  if (isDone && navigator.vibrate) navigator.vibrate(40);
+  if (isDone) {
+    // Pop animation
+    btn.classList.remove('pop');
+    void btn.offsetWidth; // reflow to restart animation
+    btn.classList.add('pop');
+    if (navigator.vibrate) navigator.vibrate(40);
+  }
 
   // Update sequential locks
   updateSerieLocks(ei, totalSeries);
@@ -4419,6 +4431,17 @@ function renderBadge(badge) {
 }
 
 function finishSession() {
+  // Shake if rest timer is active
+  if (restInterval) {
+    const btn = document.getElementById('finishBtn');
+    if (btn) {
+      btn.style.animation = 'none';
+      void btn.offsetWidth;
+      btn.style.animation = 'shake .4s ease';
+      setTimeout(() => btn.style.animation = '', 400);
+    }
+    return;
+  }
   const routine = db.routine.get();
   const day = routine?.days?.[currentDayIdx];
   if (!day) return;
