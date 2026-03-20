@@ -565,8 +565,20 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
         <div id="wContext" style="font-size:11px;color:var(--muted);font-weight:300;"></div>
         <div id="wProgress" style="font-size:11px;color:var(--accent);font-weight:600;"></div>
       </div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button id="warmToggleBtn" onclick="toggleQuickTempo('warm')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 8px;border-radius:var(--radius-sm);border:1.5px solid #2a3a1a;background:#141f08;font-size:11px;color:#8fcc44;cursor:pointer;transition:all .2s;">
+          🔥 <span id="warmToggleLabel">Calentamiento</span>
+        </button>
+        <button id="coolToggleBtn" onclick="toggleQuickTempo('cool')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 8px;border-radius:var(--radius-sm);border:1.5px solid #1a2a3a;background:#08141f;font-size:11px;color:#44aacc;cursor:pointer;transition:all .2s;">
+          ❄️ <span id="coolToggleLabel">Vuelta a la calma</span>
+        </button>
+      </div>
     </div>
     <button class="btn-g" onclick="openEditDay(currentDayIdx)">✏️</button>
+  </div>
+  <!-- Quick tempo sheet -->
+  <div id="quickTempoSheet" style="display:none;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;">
+    <div id="quickTempoContent"></div>
   </div>
   <div id="exList"></div>
   <div class="save-bar-wrap">
@@ -764,7 +776,12 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 <!-- ═══ HISTORY ═══ -->
 <div id="s-history" class="screen">
   <div class="page-header"><div class="btn-back" onclick="navBack()">‹</div><div class="page-title">HISTORIAL</div></div>
+  <div style="display:flex;gap:0;margin:8px 16px 0;background:var(--surface2);border-radius:var(--radius-sm);padding:3px;">
+    <button id="histViewList" class="view-toggle-btn active" onclick="setHistView('list')" style="flex:1;justify-content:center;">☰ Lista</button>
+    <button id="histViewCal" class="view-toggle-btn" onclick="setHistView('cal')" style="flex:1;justify-content:center;">📅 Calendario</button>
+  </div>
   <div id="histList" style="padding:8px 0 24px;"></div>
+  <div id="histCal" style="padding:8px 16px 24px;display:none;"></div>
 </div>
 
 <!-- ═══ ROUTINE EDITOR ═══ -->
@@ -1977,8 +1994,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.3';
+const APP_VERSION = '4.3.4';
 // Changelog:
+// 4.3.4 — Calentamiento toggle, historial calendario
 // 4.3.3 — Barra segmentada, confetti PR, resumen full screen
 // 4.3.2 — Home rediseñado: hero card, greeting, stats animados
 // 4.3.1 — Micro-animaciones: pop check, fade timer, shake finalizar
@@ -3510,13 +3528,10 @@ function renderCarousel(di) {
   const exercises = day.exercises.map((ex, ei) => ({ex, ei}))
     .filter(({ei}) => !hidden[`${di}_${ei}`]);
 
-  // Include warmup, exercises, extra slot, and cooldown
-  const extraExercises = day.exercises.slice(exercises.length); // any extras added during workout
+  // Slides: exercises + extra slot only (warm/cool are quick toggles in header)
   const allSlides = [
-    {type:'warm'},
     ...exercises.map(({ex,ei}) => ({type:'ex', ex, ei})),
     {type:'extra'},
-    {type:'cool'},
   ];
   carouselTotal = allSlides.length;
   if (carouselIdx >= carouselTotal) carouselIdx = 0;
@@ -3830,9 +3845,66 @@ function buildSparkline(exSessions, ei) {
 function renderExList(di) {
   renderCarousel(di);
 }
+function toggleQuickTempo(id) {
+  const sheet = document.getElementById('quickTempoSheet');
+  const content = document.getElementById('quickTempoContent');
+  const isWarm = id === 'warm';
+  const color = isWarm ? '#8fcc44' : '#44aacc';
+  const emoji = isWarm ? '🔥' : '❄️';
+  const label = isWarm ? 'Calentamiento' : 'Vuelta a la calma';
+
+  // Toggle: if same section already open, close it
+  if (sheet.style.display !== 'none' && sheet.dataset.current === id) {
+    sheet.style.display = 'none';
+    return;
+  }
+  sheet.dataset.current = id;
+  sheet.style.display = 'block';
+  content.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-size:13px;font-weight:600;color:${color};">${emoji} ${label}</div>
+      <button onclick="document.getElementById('quickTempoSheet').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:11px;color:var(--muted);">Tiempo</label>
+        <input class="input-f sm" type="number" inputmode="decimal" id="${id}T" placeholder="10" style="width:60px;" oninput="this.classList.toggle('filled',!!this.value)">
+        <span style="font-size:11px;color:var(--muted);">min</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:11px;color:var(--muted);">Velocidad</label>
+        <input class="input-f sm" type="number" inputmode="decimal" id="${id}V" placeholder="6.0" style="width:60px;" oninput="this.classList.toggle('filled',!!this.value)">
+        <span style="font-size:11px;color:var(--muted);">km/h</span>
+      </div>
+      ${isWarm ? `<div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:11px;color:var(--muted);">Inclinación</label>
+        <input class="input-f sm" type="number" inputmode="decimal" id="${id}I" placeholder="1.5" style="width:60px;" oninput="this.classList.toggle('filled',!!this.value)">
+        <span style="font-size:11px;color:var(--muted);">%</span>
+      </div>` : ''}
+      <button class="serie-check" id="${id}DoneCircle" style="width:36px;height:36px;font-size:14px;margin-left:auto;" onclick="toggleTempoDoneQuick('${id}')">○</button>
+    </div>`;
+}
+
+function toggleTempoDoneQuick(id) {
+  const btn = document.getElementById(`${id}DoneCircle`);
+  const toggleId = id === 'warm' ? 'warmToggleBtn' : 'coolToggleBtn';
+  const labelId = id === 'warm' ? 'warmToggleLabel' : 'coolToggleLabel';
+  const isDone = btn.classList.toggle('done');
+  btn.textContent = isDone ? '✓' : '○';
+  // Update toggle button style
+  const toggleBtn = document.getElementById(toggleId);
+  const lbl = document.getElementById(labelId);
+  if (toggleBtn) {
+    toggleBtn.style.opacity = isDone ? '0.6' : '1';
+    toggleBtn.style.borderColor = isDone ? 'rgba(212,245,60,.4)' : '';
+  }
+  if (lbl) lbl.textContent = isDone ? '✓ Hecho' : (id === 'warm' ? 'Calentamiento' : 'Vuelta a la calma');
+  if (isDone && navigator.vibrate) navigator.vibrate(40);
+}
+
 function toggleTempo(id) {
   const body = document.getElementById(`${id}Body`);
-  const open = body.classList.toggle('open');
+  const open = body?.classList.toggle('open');
 }
 
 function toggleTempoDone(id) {
@@ -5726,6 +5798,123 @@ function deleteSupp(id) {
 // ═══════════════════════════════════════════════
 // HISTORY
 // ═══════════════════════════════════════════════
+let histView = 'list';
+
+function setHistView(v) {
+  histView = v;
+  document.getElementById('histViewList').classList.toggle('active', v === 'list');
+  document.getElementById('histViewCal').classList.toggle('active', v === 'cal');
+  document.getElementById('histList').style.display = v === 'list' ? '' : 'none';
+  document.getElementById('histCal').style.display = v === 'cal' ? '' : 'none';
+  if (v === 'cal') renderHistCal();
+}
+
+function renderHistCal() {
+  const sessions = db.sessions.get();
+  const sportLogs = db.sportLogs.get();
+  const routine = db.routine.get();
+  const container = document.getElementById('histCal');
+
+  // Build map of date → activities
+  const actMap = {};
+  sessions.forEach(s => {
+    const k = localDateStr(new Date(s.ts));
+    if (!actMap[k]) actMap[k] = [];
+    actMap[k].push({type:'gym', dayIdx:s.dayIdx, ts:s.ts, s});
+  });
+  sportLogs.forEach(s => {
+    const k = localDateStr(new Date(s.ts));
+    if (!actMap[k]) actMap[k] = [];
+    actMap[k].push({type:'sport', ts:s.ts, s});
+  });
+
+  // Show last 6 months
+  const today = new Date();
+  let html = '';
+  for (let mo = 5; mo >= 0; mo--) {
+    const monthDate = new Date(today.getFullYear(), today.getMonth() - mo, 1);
+    const monthLabel = monthDate.toLocaleDateString('es-AR', {month:'long', year:'numeric'});
+    const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth()+1, 0).getDate();
+    const firstDow = (monthDate.getDay() + 6) % 7; // Mon=0
+
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600;margin-bottom:8px;">${monthLabel}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
+        ${['L','M','X','J','V','S','D'].map(d=>`<div style="font-size:9px;color:var(--muted);text-align:center;padding-bottom:2px;">${d}</div>`).join('')}
+        ${Array(firstDow).fill('<div></div>').join('')}
+        ${Array.from({length:daysInMonth},(_,i)=>{
+          const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), i+1);
+          const k = localDateStr(d);
+          const acts = actMap[k] || [];
+          const isToday = k === localDateStr();
+          const isFuture = d > today;
+          let bg = 'var(--surface2)';
+          let border = '1px solid var(--border)';
+          let dot = '';
+          if (!isFuture && acts.length) {
+            const hasGym = acts.some(a=>a.type==='gym');
+            const hasSport = acts.some(a=>a.type==='sport');
+            bg = hasGym ? 'rgba(212,245,60,.25)' : 'rgba(245,165,60,.25)';
+            border = hasGym ? '1px solid var(--accent)' : '1px solid var(--orange)';
+          }
+          if (isToday) border = '2px solid var(--accent)';
+          const dayIdx = acts.find(a=>a.type==='gym')?.dayIdx;
+          const dayColor = dayIdx !== undefined ? DAY_COLORS[dayIdx%7] : '';
+          if (dayColor && acts.some(a=>a.type==='gym')) bg = dayColor + '33';
+          return `<div onclick="histCalDayClick('${k}')"
+            style="aspect-ratio:1;border-radius:6px;border:${border};background:${bg};
+                   display:flex;align-items:center;justify-content:center;
+                   font-size:10px;font-weight:600;color:${acts.length?'var(--text)':'var(--muted)'};
+                   cursor:${acts.length?'pointer':'default'};transition:all .15s;
+                   ${isFuture?'opacity:.3':''}">${i+1}</div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Day detail area
+  html += `<div id="histCalDetail" style="margin-top:4px;"></div>`;
+  container.innerHTML = html;
+}
+
+function histCalDayClick(dateKey) {
+  const sessions = db.sessions.get();
+  const sportLogs = db.sportLogs.get();
+  const routine = db.routine.get();
+  const daySess = sessions.filter(s=>localDateStr(new Date(s.ts))===dateKey);
+  const daySport = sportLogs.filter(s=>localDateStr(new Date(s.ts))===dateKey);
+  const detail = document.getElementById('histCalDetail');
+  if (!detail) return;
+  if (!daySess.length && !daySport.length) { detail.innerHTML=''; return; }
+
+  const dateLabel = new Date(dateKey+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+  let html = `<div style="margin-top:4px;border-top:1px solid var(--border);padding-top:12px;">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">${dateLabel}</div>`;
+
+  daySess.forEach(s => {
+    const dayName = routine?.days?.[s.dayIdx]?.name || 'Entrenamiento';
+    const color = DAY_COLORS[s.dayIdx%7];
+    const exList = Object.values(s.exercises||{});
+    const vol = exList.reduce((a,ex)=>a+(ex.series?.filter(ss=>ss.done&&(ss.kg||0)>0).reduce((b,ss)=>b+(ss.reps||0)*(ss.kg||0),0)||0),0);
+    const done = exList.reduce((a,ex)=>a+(ex.series?.filter(ss=>ss.done).length||0),0);
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${color};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;">${dayName}</div>
+      <div style="font-size:12px;color:var(--muted);">${done} series${vol>0?' · '+Math.round(vol)+'kg':''}</div>
+    </div>`;
+  });
+
+  daySport.forEach(s => {
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;">${s.name||'Deporte'}</div>
+      <div style="font-size:12px;color:var(--muted);">${s.duracion ? s.duracion+' min' : ''}</div>
+    </div>`;
+  });
+
+  html += '</div>';
+  detail.innerHTML = html;
+  detail.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
 function renderHistory() {
   const sessions = db.sessions.get();
   const sportLogs = db.sportLogs.get();
