@@ -385,6 +385,13 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 .rest-overlay-bar{width:100%;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
 .rest-overlay-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 1s linear;}
 .carousel-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .35s;}
+.seg-progress{display:flex;gap:3px;margin:0 16px 2px;height:4px;}
+.seg-dot{flex:1;border-radius:2px;background:var(--surface2);transition:background .3s,transform .2s;}
+.seg-dot.done{background:var(--accent);}
+.seg-dot.current{background:rgba(212,245,60,.55);transform:scaleY(1.4);}
+.confetti-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden;}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confettiFall linear forwards;}
+@keyframes confettiFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0;}}
 .carousel-ex-header{padding:12px 0 8px;}
 .carousel-ex-num{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:2px;}
 .carousel-ex-name{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.5px;line-height:1.1;}
@@ -1173,17 +1180,18 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 </div>
 
 <!-- Cal/Summary overlay -->
-<div class="overlay" id="calOverlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="sheet" style="max-height:92vh;overflow-y:auto;"><div class="sheet-drag"></div>
-    <div style="padding:14px 18px 0;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);">Resumen · Sesión completada</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-top:2px;" id="calDayName">—</div>
+<div class="overlay" id="calOverlay">
+  <div style="position:fixed;inset:0;background:#0a0a0a;z-index:500;overflow-y:auto;display:none;flex-direction:column;" id="calFullScreen">
+    <!-- Header -->
+    <div style="padding:52px 20px 16px;background:linear-gradient(180deg,#131313 0%,#0a0a0a 100%);">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:3px;color:var(--muted);margin-bottom:4px;">SESIÓN COMPLETADA 🏁</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:1px;line-height:1;" id="calDayName">—</div>
     </div>
-    <div id="calContent" style="padding:0 18px;"></div>
-    <div style="padding:4px 18px 20px;display:flex;flex-direction:column;gap:8px;">
-      <button class="btn-p" id="calConfirmBtn" onclick="confirmSave()">IR AL INICIO</button>
+    <div id="calContent" style="padding:0 20px;flex:1;"></div>
+    <div style="padding:16px 20px 40px;display:flex;flex-direction:column;gap:8px;">
+      <button class="btn-p" id="calConfirmBtn" onclick="confirmSave()" style="font-size:18px;">IR AL INICIO</button>
       <button class="btn-g" id="calShareBtn" style="width:100%;justify-content:center;" onclick="shareSession()">📤 Compartir resumen</button>
-      <button class="btn-g" id="calCancelBtn" style="width:100%;justify-content:center;" onclick="document.getElementById('calOverlay').classList.remove('open')">Seguir editando</button>
+      <button class="btn-g" id="calCancelBtn" style="width:100%;justify-content:center;" onclick="document.getElementById('calOverlay').classList.remove('open');document.getElementById('calFullScreen').style.display='none';">Seguir editando</button>
     </div>
   </div>
 </div>
@@ -1969,8 +1977,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.2';
+const APP_VERSION = '4.3.3';
 // Changelog:
+// 4.3.3 — Barra segmentada, confetti PR, resumen full screen
 // 4.3.2 — Home rediseñado: hero card, greeting, stats animados
 // 4.3.1 — Micro-animaciones: pop check, fade timer, shake finalizar
 // 4.3.0 — Deload, 1RM estimado, compartir rutina
@@ -3624,7 +3633,9 @@ function renderCarousel(di) {
   const pct = carouselTotal > 0 ? Math.round((carouselIdx / carouselTotal) * 100) : 0;
 
   container.innerHTML = `
-    <div class="carousel-progress"><div class="carousel-progress-fill" id="carouselFill" style="width:${pct}%"></div></div>
+    <div class="seg-progress" id="segProgress">
+      ${allSlides.map((_,i) => `<div class="seg-dot${i < carouselIdx ? ' done' : i === carouselIdx ? ' current' : ''}" id="seg${i}"></div>`).join('')}
+    </div>
     <div class="carousel-wrap" style="position:relative;">
       <div class="rest-overlay" id="restOverlayCarousel">
         <div class="rest-overlay-exname" id="restOverlayExName"></div>
@@ -3725,9 +3736,11 @@ function carouselGo(dir) {
   // Update counter
   const counter = document.querySelector('.carousel-nav + div div');
   if (counter) counter.textContent = `${carouselIdx+1} / ${carouselTotal}`;
-  // Update progress
-  const fill = document.getElementById('carouselFill');
-  if (fill) fill.style.width = `${Math.round((carouselIdx/carouselTotal)*100)}%`;
+  // Update segmented progress bar
+  document.querySelectorAll('.seg-dot').forEach((dot, i) => {
+    dot.classList.toggle('done', i < carouselIdx);
+    dot.classList.toggle('current', i === carouselIdx);
+  });
 }
 
 function carouselGoToEx(ei) {
@@ -4731,12 +4744,46 @@ function showQuickSummary(sess, completed, skipped, newPRs, curVol, prevVol, cal
   };
   document.getElementById('calCancelBtn').style.display = 'none';
 
+  const fs = document.getElementById('calFullScreen');
+  if (fs) {
+    fs.style.display = 'flex';
+    fs.style.animation = 'fadeInUp .3s ease both';
+  }
   document.getElementById('calOverlay').classList.add('open');
+
+  // Confetti if PRs
+  if (newPRs.length) {
+    setTimeout(launchConfetti, 400);
+  }
 }
 
 // Legacy - keep for any remaining references
+function launchConfetti() {
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  document.body.appendChild(container);
+  const colors = ['#d4f53c','#fff','#f5b43c','#f08080','#7ec8e3'];
+  for (let i = 0; i < 60; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.cssText = `
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${0.8 + Math.random()*1.4}s;
+      animation-delay:${Math.random()*0.5}s;
+      width:${4+Math.random()*8}px;
+      height:${4+Math.random()*8}px;
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+    `;
+    container.appendChild(piece);
+  }
+  setTimeout(() => container.remove(), 3000);
+}
+
 function confirmSave() {
   document.getElementById('calOverlay').classList.remove('open');
+  const fs = document.getElementById('calFullScreen');
+  if (fs) fs.style.display = 'none';
   navTo('home');
 }
 
