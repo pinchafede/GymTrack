@@ -1821,6 +1821,7 @@ async function gdriveUpload(silent = false) {
       sports:     db.sports.get(),
       sportLogs:  db.sportLogs.get(),
       supps:      db.supps.get(),
+      suppLogs:   db.suppLogs.get(),
       hidden:     db.hidden.get(),
       weightLog:  db.weightLog.get(),
       restCfg:    db.restCfg.get(),
@@ -1971,7 +1972,8 @@ function renderSuppHistory() {
   if (!supps.length) { container.innerHTML = '<div class="no-data">No tenés suplementos cargados.</div>'; return; }
   let html = '';
   supps.forEach(s => {
-    const sLogs = logs.filter(l=>l.suppId===s.id);
+    // Match by suppId OR by name (handles id changes after import)
+    const sLogs = logs.filter(l=>l.suppId===s.id || l.suppName===s.name);
     const total = sLogs.length;
     const startDate = s.startDate ? new Date(s.startDate) : null;
     const diasDesde = startDate ? Math.floor((Date.now()-startDate)/86400000) : null;
@@ -2007,8 +2009,10 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.7';
+const APP_VERSION = '4.3.10';
 // Changelog:
+// 4.3.10 — Fix historial suplementos: match por nombre además de id
+// 4.3.9 — Fix suppLogs: export e import del historial de tomas
 // 4.3.7 — Sesiones seed para precargar pesos sin afectar stats
 // 4.3.6 — Hero card: deporte tiene prioridad, gym como secundario
 // 4.3.5 — Deporte con día asignado, hero card en home
@@ -5745,7 +5749,8 @@ function toggleSupp(id, tomaIdx) {
     today[key] = {done:true, hora};
     // Log esta toma en el historial permanente
     const logs = db.suppLogs.get();
-    logs.push({ suppId: id, ts: new Date().toISOString(), hora });
+    const suppName = db.supps.get().find(s=>s.id===id)?.name || '';
+    logs.push({ suppId: id, suppName, ts: new Date().toISOString(), hora });
     db.suppLogs.set(logs);
   }
   db.suppToday.set(today);
@@ -6577,8 +6582,10 @@ function importBackup(input) {
       if (data.sports) db.sports.set(data.sports);
       if (data.sportLogs) db.sportLogs.set(data.sportLogs);
       if (data.supps) db.supps.set(data.supps);
+      if (data.suppLogs) db.suppLogs.set(data.suppLogs);
       if (data.hidden) db.hidden.set(data.hidden);
       if (data.weightLog) db.weightLog.set(data.weightLog);
+      if (data.notifCfg) db.notifCfg.set(data.notifCfg);
       toast('✓ Backup restaurado');
       navTo('home');
     } catch { toast('⚠ Archivo inválido'); }
