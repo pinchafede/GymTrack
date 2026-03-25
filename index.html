@@ -2009,8 +2009,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.10';
+const APP_VERSION = '4.3.11';
 // Changelog:
+// 4.3.11 — Fix crítico: cleanOldSuppKeys borraba gt_supp_logs
 // 4.3.10 — Fix historial suplementos: match por nombre además de id
 // 4.3.9 — Fix suppLogs: export e import del historial de tomas
 // 4.3.7 — Sesiones seed para precargar pesos sin afectar stats
@@ -6669,7 +6670,8 @@ function cleanOldSuppKeys() {
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith('gt_supp_') && key !== todayKey) {
+    // Only remove dated supp keys (gt_supp_YYYY-MM-DD), never gt_supp_logs
+    if (key && key.startsWith('gt_supp_') && key !== todayKey && key !== 'gt_supp_logs') {
       keysToRemove.push(key);
     }
   }
