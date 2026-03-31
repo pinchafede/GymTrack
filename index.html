@@ -1180,6 +1180,25 @@ input[type=number]{color:var(--text);-webkit-text-fill-color:var(--text)}
 </div>
 
 <!-- Supp Edit -->
+<div class="overlay" id="pastTomaOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sheet"><div class="sheet-drag"></div>
+    <div class="sheet-header">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;">REGISTRAR TOMA PASADA</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;" id="pastTomaTitle">—</div>
+      </div>
+      <div class="sheet-close" onclick="document.getElementById('pastTomaOverlay').classList.remove('open')">✕</div>
+    </div>
+    <div style="padding:18px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Fecha</label>
+      <input id="pastTomaDate" class="input-f" type="date" style="margin-bottom:14px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Hora</label>
+      <input id="pastTomaHora" class="input-f" type="time" style="margin-bottom:20px;">
+      <button onclick="savePastToma()" class="btn-p" style="font-size:18px;">GUARDAR TOMA</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="suppEditOverlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="sheet"><div class="sheet-drag"></div>
     <div class="sheet-header">
@@ -2009,8 +2028,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.11';
+const APP_VERSION = '4.3.12';
 // Changelog:
+// 4.3.12 — Registrar toma pasada de suplemento
 // 4.3.11 — Fix crítico: cleanOldSuppKeys borraba gt_supp_logs
 // 4.3.10 — Fix historial suplementos: match por nombre además de id
 // 4.3.9 — Fix suppLogs: export e import del historial de tomas
@@ -5738,6 +5758,42 @@ function resetSuppToday() {
   toast('Checks de hoy reseteados');
 }
 
+let pastTomaId = null;
+
+function openAddPastToma(id) {
+  pastTomaId = id;
+  const supp = db.supps.get().find(s=>s.id===id);
+  document.getElementById('pastTomaTitle').textContent = supp ? supp.name : 'Suplemento';
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  document.getElementById('pastTomaDate').value = localDateStr(yesterday);
+  document.getElementById('pastTomaHora').value = '21:30';
+  document.getElementById('pastTomaOverlay').classList.add('open');
+}
+
+function savePastToma() {
+  const date = document.getElementById('pastTomaDate').value;
+  const hora = document.getElementById('pastTomaHora').value || '12:00';
+  if (!date || !pastTomaId) return;
+  if (date > localDateStr()) { toast('No puedes registrar una toma futura'); return; }
+  const suppName = db.supps.get().find(s=>s.id===pastTomaId)?.name || '';
+  const ts = new Date(date + 'T' + hora + ':00').toISOString();
+  const logs = db.suppLogs.get();
+  const already = logs.some(l =>
+    (l.suppId === pastTomaId || l.suppName === suppName) &&
+    localDateStr(new Date(l.ts)) === date
+  );
+  if (already) {
+    if (!confirm('Ya hay una toma registrada ese dia. Agregar otra igual?')) return;
+  }
+  logs.push({ suppId: pastTomaId, suppName, ts, hora, manual: true });
+  db.suppLogs.set(logs);
+  document.getElementById('pastTomaOverlay').classList.remove('open');
+  const label = new Date(date + 'T12:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'long'});
+  toast('Toma de ' + suppName + ' registrada para el ' + label);
+  pastTomaId = null;
+}
+
 function toggleSupp(id, tomaIdx) {
   const today = db.suppToday.get();
   const key = tomaIdx !== undefined ? `${id}_${tomaIdx}` : id;
@@ -5807,6 +5863,7 @@ function renderSupplements() {
           </div>
           <div style="display:flex;gap:6px;">
             <button class="btn-g" onclick="openSuppInfo('${s.id}')" style="padding:5px 8px;">💡</button>
+            <button class="btn-g" onclick="openAddPastToma('${s.id}')" style="padding:5px 8px;font-size:13px;">＋</button>
             <button class="btn-g" onclick="openSuppEdit('${s.id}')" style="padding:5px 8px;">✏️</button>
             <button class="btn-g danger" onclick="deleteSupp('${s.id}')" style="padding:5px 8px;">✕</button>
           </div>
