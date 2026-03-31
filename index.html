@@ -2028,8 +2028,9 @@ function renderSuppHistory() {
   container.innerHTML = html;
 }
 
-const APP_VERSION = '4.3.12';
+const APP_VERSION = '4.3.13';
 // Changelog:
+// 4.3.13 — Timer descanso: aviso 10s, sonido agudo, vibracion patron
 // 4.3.12 — Registrar toma pasada de suplemento
 // 4.3.11 — Fix crítico: cleanOldSuppKeys borraba gt_supp_logs
 // 4.3.10 — Fix historial suplementos: match por nombre además de id
@@ -4070,7 +4071,7 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-function playBeep(freq = 880, duration = 0.2) {
+function playBeep(freq = 880, duration = 0.2, volume = 0.6) {
   const cfg = db.restCfg.get();
   if (cfg.soundOff) return;
   try {
@@ -4080,12 +4081,33 @@ function playBeep(freq = 880, duration = 0.2) {
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.frequency.value = freq;
-    osc.type = 'sine';
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    osc.type = 'square'; // square wave cuts through music better than sine
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
   } catch(e) {}
+}
+
+function playPrepareAlert() {
+  // 10s warning: 2 short pulses + 2 vibration bursts
+  const cfg = db.restCfg.get();
+  if (!cfg.soundOff) {
+    playBeep(1200, 0.08, 0.5);
+    setTimeout(() => playBeep(1200, 0.08, 0.5), 150);
+  }
+  if (navigator.vibrate) navigator.vibrate([60, 80, 60]); // short-pause-short
+}
+
+function playFinishAlert() {
+  // End of rest: 3 punchy beeps + strong vibration
+  const cfg = db.restCfg.get();
+  if (!cfg.soundOff) {
+    playBeep(1400, 0.12, 0.7);
+    setTimeout(() => playBeep(1400, 0.12, 0.7), 160);
+    setTimeout(() => playBeep(1600, 0.18, 0.8), 320);
+  }
+  if (navigator.vibrate) navigator.vibrate([120, 60, 120, 60, 200]); // strong pattern
 }
 
 // ─── TIMED TOGGLE in editor ───────────────────────────────────────────────────
@@ -4507,14 +4529,27 @@ function startRest(seconds, type, completedEi, completedSi) {
 
     if (restRemaining <= 0) {
       stopRest();
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      playBeep(660, 0.15);
-      setTimeout(() => playBeep(880, 0.25), 200);
+      playFinishAlert();
       // Unlock all rest-locked rows
       document.querySelectorAll('[data-rest-locked="1"]').forEach(row => {
         row.classList.remove('locked');
         row.removeAttribute('data-rest-locked');
       });
+    } else if (restRemaining === 10) {
+      // 10s warning
+      playPrepareAlert();
+      // Visual: turn timer orange
+      const timeEl = document.getElementById('restOverlayTime') || document.getElementById('restTime');
+      if (timeEl) {
+        timeEl.style.color = 'var(--orange)';
+        timeEl.style.animation = 'none';
+        void timeEl.offsetWidth;
+        timeEl.style.animation = 'checkPop .3s ease both';
+      }
+    } else if (restRemaining > 10) {
+      // Reset color once above 10
+      const timeEl = document.getElementById('restOverlayTime') || document.getElementById('restTime');
+      if (timeEl) timeEl.style.color = '';
     }
   }, 1000);
 }
@@ -4523,6 +4558,9 @@ function stopRest() {
   if (restInterval) { clearInterval(restInterval); restInterval = null; }
   document.getElementById('restBar')?.classList.remove('show');
   document.getElementById('restOverlayCarousel')?.classList.remove('show');
+  // Reset timer color
+  const timeEl = document.getElementById('restOverlayTime') || document.getElementById('restTime');
+  if (timeEl) timeEl.style.color = '';
   currentRestType = null;
   currentRestEi = undefined;
 }
